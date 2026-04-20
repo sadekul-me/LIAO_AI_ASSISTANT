@@ -1,0 +1,18 @@
+# API Keys and Secrets
+.env
+
+# Python specific
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+
+# Data and Logs
+data/logs/*.log
+data/cache/*
+*.mp3
+
+# IDEs
+.vscode/
+.idea/
