@@ -1,7 +1,7 @@
 import customtkinter as ctk
 
-from frontend.ui.chat_window import ChatWindow
 from frontend.ui.dashboard import DashboardWindow
+from frontend.ui.chat_window import ChatWindow
 from frontend.ui.settings import SettingsWindow
 from frontend.ui.voice_ui import VoiceUI
 
@@ -12,7 +12,7 @@ ctk.set_default_color_theme("blue")
 
 class LIAODesktopApp(ctk.CTk):
     """
-    Main desktop launcher for LIAO AI Assistant.
+    Main Application Shell for LIAO AI Assistant
     """
 
     def __init__(self):
@@ -24,71 +24,40 @@ class LIAODesktopApp(ctk.CTk):
 
         self.current_frame = None
 
-        self._configure_layout()
+        self._setup_layout()
         self._build_sidebar()
         self._build_topbar()
 
         self.show_dashboard()
 
-    def _configure_layout(self):
+    # ---------------- Layout ----------------
+    def _setup_layout(self):
         self.grid_columnconfigure(0, weight=0)
         self.grid_columnconfigure(1, weight=1)
 
         self.grid_rowconfigure(0, weight=0)
         self.grid_rowconfigure(1, weight=1)
 
+    # ---------------- Sidebar ----------------
     def _build_sidebar(self):
-        self.sidebar = ctk.CTkFrame(
-            self,
-            width=230,
-            corner_radius=0
-        )
-        self.sidebar.grid(
-            row=0,
-            column=0,
-            rowspan=2,
-            sticky="nsew"
-        )
+        self.sidebar = ctk.CTkFrame(self, width=230, corner_radius=0)
+        self.sidebar.grid(row=0, column=0, rowspan=2, sticky="nsew")
 
         self.sidebar.grid_rowconfigure(10, weight=1)
 
-        self.logo = ctk.CTkLabel(
+        logo = ctk.CTkLabel(
             self.sidebar,
             text="LIAO AI",
             font=ctk.CTkFont(size=26, weight="bold")
         )
-        self.logo.grid(
-            row=0,
-            column=0,
-            padx=24,
-            pady=(28, 24)
-        )
+        logo.grid(row=0, column=0, padx=20, pady=(30, 20))
 
-        self.dashboard_btn = self._menu_button(
-            row=1,
-            text="Dashboard",
-            command=self.show_dashboard
-        )
+        self._menu_button("Dashboard", self.show_dashboard, 1)
+        self._menu_button("Chat", self.show_chat, 2)
+        self._menu_button("Voice", self.show_voice, 3)
+        self._menu_button("Settings", self.show_settings, 4)
 
-        self.chat_btn = self._menu_button(
-            row=2,
-            text="Chat",
-            command=self.show_chat
-        )
-
-        self.voice_btn = self._menu_button(
-            row=3,
-            text="Voice",
-            command=self.show_voice
-        )
-
-        self.settings_btn = self._menu_button(
-            row=4,
-            text="Settings",
-            command=self.show_settings
-        )
-
-        self.exit_btn = ctk.CTkButton(
+        exit_btn = ctk.CTkButton(
             self.sidebar,
             text="Exit",
             height=42,
@@ -96,25 +65,21 @@ class LIAODesktopApp(ctk.CTk):
             hover_color="#991B1B",
             command=self.destroy
         )
-        self.exit_btn.grid(
-            row=9,
-            column=0,
-            padx=18,
-            pady=18,
-            sticky="ew"
-        )
+        exit_btn.grid(row=9, column=0, padx=18, pady=20, sticky="ew")
 
+    def _menu_button(self, text, command, row):
+        btn = ctk.CTkButton(
+            self.sidebar,
+            text=text,
+            height=42,
+            command=command
+        )
+        btn.grid(row=row, column=0, padx=18, pady=8, sticky="ew")
+
+    # ---------------- Topbar ----------------
     def _build_topbar(self):
-        self.topbar = ctk.CTkFrame(
-            self,
-            height=70,
-            corner_radius=0
-        )
-        self.topbar.grid(
-            row=0,
-            column=1,
-            sticky="ew"
-        )
+        self.topbar = ctk.CTkFrame(self, height=70, corner_radius=0)
+        self.topbar.grid(row=0, column=1, sticky="ew")
 
         self.topbar.grid_columnconfigure(0, weight=1)
 
@@ -123,52 +88,19 @@ class LIAODesktopApp(ctk.CTk):
             text="Dashboard",
             font=ctk.CTkFont(size=22, weight="bold")
         )
-        self.title_label.grid(
-            row=0,
-            column=0,
-            padx=24,
-            pady=18,
-            sticky="w"
-        )
+        self.title_label.grid(row=0, column=0, padx=20, pady=18, sticky="w")
 
-        self.status_label = ctk.CTkLabel(
-            self.topbar,
-            text="● Online",
-            font=ctk.CTkFont(size=14)
-        )
-        self.status_label.grid(
-            row=0,
-            column=1,
-            padx=24,
-            pady=18,
-            sticky="e"
-        )
-
-    def _menu_button(self, row, text, command):
-        button = ctk.CTkButton(
-            self.sidebar,
-            text=text,
-            height=42,
-            command=command
-        )
-        button.grid(
-            row=row,
-            column=0,
-            padx=18,
-            pady=8,
-            sticky="ew"
-        )
-        return button
-
-    def _clear_content(self):
-        if self.current_frame is not None:
+    # ---------------- Navigation ----------------
+    def _clear_frame(self):
+        if self.current_frame:
             self.current_frame.destroy()
+            self.current_frame = None
 
     def _set_title(self, title):
         self.title_label.configure(text=title)
 
     def show_dashboard(self):
-        self._clear_content()
+        self._clear_frame()
         self._set_title("Dashboard")
 
         self.current_frame = DashboardWindow(self)
@@ -181,14 +113,11 @@ class LIAODesktopApp(ctk.CTk):
         )
 
     def show_chat(self):
-        self._clear_content()
+        self._clear_frame()
         self._set_title("Chat")
 
-        self.current_frame = ChatWindow()
-        self.current_frame.withdraw()
-
-        frame = ctk.CTkFrame(self, corner_radius=18)
-        frame.grid(
+        self.current_frame = ChatWindow(self)
+        self.current_frame.grid(
             row=1,
             column=1,
             sticky="nsew",
@@ -196,17 +125,8 @@ class LIAODesktopApp(ctk.CTk):
             pady=18
         )
 
-        label = ctk.CTkLabel(
-            frame,
-            text="Chat Window runs separately.\nRun chat_window.py for full chat mode.",
-            font=ctk.CTkFont(size=18)
-        )
-        label.pack(expand=True)
-
-        self.current_frame = frame
-
     def show_voice(self):
-        self._clear_content()
+        self._clear_frame()
         self._set_title("Voice")
 
         self.current_frame = VoiceUI(self)
@@ -219,7 +139,7 @@ class LIAODesktopApp(ctk.CTk):
         )
 
     def show_settings(self):
-        self._clear_content()
+        self._clear_frame()
         self._set_title("Settings")
 
         self.current_frame = SettingsWindow(self)

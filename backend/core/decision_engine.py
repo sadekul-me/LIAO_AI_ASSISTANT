@@ -8,22 +8,28 @@ class DecisionEngine:
     """
     LIAO AI Assistant Decision Engine
 
-    Responsibilities:
-    - detect user intent
-    - route commands
-    - fuzzy matching
-    - fallback AI intent detection
-    - structured safe output
+    Features:
+    - Intent Detection
+    - App Open Command
+    - Web Search Command
+    - System Command
+    - File / Project Request
+    - Fuzzy Matching
+    - AI Fallback
     """
 
     def __init__(self, ai_engine: Optional[object] = None):
         self.ai_engine = ai_engine
 
+        # --------------------------------------
+        # APP KEYWORDS
+        # --------------------------------------
         self.app_keywords = {
             "vscode": [
                 "vscode",
                 "vs code",
-                "visual studio code"
+                "visual studio code",
+                "code editor"
             ],
             "chrome": [
                 "chrome",
@@ -40,25 +46,25 @@ class DecisionEngine:
             "spotify": [
                 "spotify"
             ],
-            "filmora": [
-                "filmora"
-            ],
-            "photoshop": [
-                "photoshop",
-                "ps"
-            ],
             "telegram": [
                 "telegram"
             ],
             "discord": [
                 "discord"
+            ],
+            "photoshop": [
+                "photoshop",
+                "ps"
+            ],
+            "filmora": [
+                "filmora"
             ]
         }
 
+    # ==================================================
+    # MAIN ANALYZE
+    # ==================================================
     def analyze(self, text: str) -> Dict[str, Any]:
-        """
-        Main decision router
-        """
         user_input = text.strip().lower()
 
         if not user_input:
@@ -67,6 +73,7 @@ class DecisionEngine:
                 message="No input detected."
             )
 
+        # Exit
         if self._is_exit_command(user_input):
             return self._response(
                 intent="system_action",
@@ -74,15 +81,17 @@ class DecisionEngine:
                 message="Exit command detected."
             )
 
+        # Open App
         if self._is_open_app(user_input):
             app_name = self._extract_app_name(user_input)
 
             return self._response(
                 intent="open_app",
                 target=app_name,
-                message=f"Open request for {app_name}."
+                message=f"{app_name} খুলছি।"
             )
 
+        # Search Web
         if self._is_search_request(user_input):
             query = self._extract_search_query(text)
 
@@ -92,12 +101,14 @@ class DecisionEngine:
                 message="Search request detected."
             )
 
+        # File / Project
         if self._is_file_request(user_input):
             return self._response(
                 intent="create_file",
-                message="File or project creation request detected."
+                message="File / project creation request detected."
             )
 
+        # System Command
         if self._is_system_command(user_input):
             action = self._extract_system_action(user_input)
 
@@ -107,8 +118,12 @@ class DecisionEngine:
                 message="System command detected."
             )
 
+        # Fallback AI
         return self._fallback_ai_or_chat(text)
 
+    # ==================================================
+    # RESPONSE FORMAT
+    # ==================================================
     def _response(
         self,
         intent: str,
@@ -116,6 +131,7 @@ class DecisionEngine:
         target: str = "",
         action: str = ""
     ) -> Dict[str, Any]:
+
         return {
             "intent": intent,
             "target": target,
@@ -123,36 +139,49 @@ class DecisionEngine:
             "message": message
         }
 
+    # ==================================================
+    # EXIT
+    # ==================================================
     def _is_exit_command(self, text: str) -> bool:
         keywords = [
             "exit",
             "quit",
-            "close app",
+            "close",
             "বন্ধ করো",
             "shutdown assistant"
         ]
+
         return any(word in text for word in keywords)
 
+    # ==================================================
+    # OPEN APP
+    # ==================================================
     def _is_open_app(self, text: str) -> bool:
         trigger_words = [
             "open",
             "launch",
             "start",
+            "run",
             "খুলো",
             "চালু করো"
         ]
 
-        has_trigger = any(word in text for word in trigger_words)
+        has_trigger = any(
+            word in text for word in trigger_words
+        )
+
         has_app = self._extract_app_name(text) != ""
 
         return has_trigger and has_app
 
     def _extract_app_name(self, text: str) -> str:
+        # Direct Match
         for app_name, aliases in self.app_keywords.items():
             for alias in aliases:
                 if alias in text:
                     return app_name
 
+        # Fuzzy Match
         all_aliases = []
         alias_map = {}
 
@@ -161,9 +190,7 @@ class DecisionEngine:
                 all_aliases.append(alias)
                 alias_map[alias] = app_name
 
-        words = text.split()
-
-        for word in words:
+        for word in text.split():
             match = get_close_matches(
                 word,
                 all_aliases,
@@ -176,6 +203,9 @@ class DecisionEngine:
 
         return ""
 
+    # ==================================================
+    # SEARCH
+    # ==================================================
     def _is_search_request(self, text: str) -> bool:
         keywords = [
             "search",
@@ -184,6 +214,7 @@ class DecisionEngine:
             "look for",
             "খুঁজে দাও"
         ]
+
         return any(word in text for word in keywords)
 
     def _extract_search_query(self, text: str) -> str:
@@ -196,6 +227,9 @@ class DecisionEngine:
 
         return cleaned.strip()
 
+    # ==================================================
+    # FILE REQUEST
+    # ==================================================
     def _is_file_request(self, text: str) -> bool:
         keywords = [
             "create file",
@@ -205,28 +239,33 @@ class DecisionEngine:
             "ফাইল বানাও",
             "প্রজেক্ট বানাও"
         ]
+
         return any(word in text for word in keywords)
 
+    # ==================================================
+    # SYSTEM COMMAND
+    # ==================================================
     def _is_system_command(self, text: str) -> bool:
         keywords = [
             "shutdown",
             "restart",
-            "lock pc",
-            "sleep pc",
+            "lock",
+            "sleep",
             "mute",
             "volume up",
             "volume down",
             "brightness up",
             "brightness down"
         ]
+
         return any(word in text for word in keywords)
 
     def _extract_system_action(self, text: str) -> str:
         mapping = {
             "shutdown": "shutdown",
             "restart": "restart",
-            "lock pc": "lock",
-            "sleep pc": "sleep",
+            "lock": "lock",
+            "sleep": "sleep",
             "mute": "mute",
             "volume up": "volume_up",
             "volume down": "volume_down",
@@ -240,60 +279,43 @@ class DecisionEngine:
 
         return "unknown"
 
-    def _fallback_ai_or_chat(self, text: str) -> Dict[str, Any]:
-        """
-        AI fallback intent detection with safe JSON parsing.
-        """
+    # ==================================================
+    # FALLBACK AI
+    # ==================================================
+    def _fallback_ai_or_chat(
+        self,
+        text: str
+    ) -> Dict[str, Any]:
+
         if self.ai_engine:
             try:
-                prompt = f"""
-User request: {text}
+                result = self.ai_engine.detect_intent(text)
 
-Analyze the request and return ONLY valid JSON.
-
-Supported intents:
-chat
-open_app
-search_web
-create_file
-system_action
-
-Format:
-{{
-  "intent": "",
-  "target": "",
-  "action": "",
-  "message": ""
-}}
-"""
-
-                result = self.ai_engine.generate_response(prompt)
-
-                if not isinstance(result, str):
-                    raise ValueError("Invalid AI response type")
-
-                cleaned = re.sub(r"```json|```", "", result).strip()
-
-                json_match = re.search(
-                    r"\{.*\}",
-                    cleaned,
-                    re.DOTALL
-                )
-
-                if json_match:
-                    json_text = json_match.group()
-
-                    data = json.loads(json_text)
-
+                if isinstance(result, dict):
                     return {
-                        "intent": data.get("intent", "chat"),
-                        "target": data.get("target", ""),
-                        "action": data.get("action", ""),
-                        "message": data.get("message", "")
+                        "intent": result.get(
+                            "intent",
+                            "chat"
+                        ),
+                        "target": result.get(
+                            "target",
+                            ""
+                        ),
+                        "action": result.get(
+                            "action",
+                            ""
+                        ),
+                        "message": result.get(
+                            "message",
+                            "General conversation."
+                        )
                     }
 
             except Exception as error:
-                print("Fallback AI error:", error)
+                print(
+                    "Fallback AI Error:",
+                    str(error)
+                )
 
         return self._response(
             intent="chat",
@@ -301,6 +323,9 @@ Format:
         )
 
 
+# ==================================================
+# TEST MODE
+# ==================================================
 if __name__ == "__main__":
     from backend.core.ai_engine import AIEngine
 
@@ -310,11 +335,13 @@ if __name__ == "__main__":
     tests = [
         "open vscode",
         "open vscod",
+        "open chrome",
         "google python decorators",
         "volume up",
+        "restart pc",
         "create project",
-        "আমার মন খারাপ গান চালাও",
-        "hello nilima"
+        "hello nilima",
+        "who are you"
     ]
 
     for item in tests:
