@@ -1,37 +1,32 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
+
 from backend.core.ai_engine import AIEngine
 
 
 # ==================================================
-# ROUTER
+# ROUTER INIT
 # ==================================================
 router = APIRouter(
     prefix="/chat",
     tags=["Chat"]
 )
 
-# AI Engine Load
 ai_engine = AIEngine()
 
 
 # ==================================================
-# REQUEST / RESPONSE MODELS
+# SCHEMAS
 # ==================================================
 class ChatRequest(BaseModel):
-    message: str = Field(
-        ...,
-        min_length=1,
-        max_length=5000
-    )
-
+    message: str = Field(..., min_length=1, max_length=5000)
     context: str = Field(default="")
 
 
 class ChatResponse(BaseModel):
     success: bool
     reply: str
-    provider: str = "unknown"
+    provider: str
 
 
 # ==================================================
@@ -46,6 +41,14 @@ def chat_status():
     }
 
 
+@router.get("/ping")
+def ping():
+    return {
+        "success": True,
+        "message": "Chat API running properly"
+    }
+
+
 # ==================================================
 # MAIN CHAT ENDPOINT
 # ==================================================
@@ -57,13 +60,15 @@ def chat(request: ChatRequest):
         if not user_message:
             raise HTTPException(
                 status_code=400,
-                detail="Message cannot be empty."
+                detail="Empty message is not allowed"
             )
 
-        print("=" * 50)
-        print("🟢 USER MESSAGE:", user_message)
+        print("\n" + "=" * 50)
+        print("USER:", user_message)
 
-        # Generate response
+        # -----------------------------
+        # AI RESPONSE GENERATION
+        # -----------------------------
         reply = ai_engine.generate_response(
             user_input=user_message,
             context=request.context
@@ -72,15 +77,16 @@ def chat(request: ChatRequest):
         provider = getattr(
             ai_engine,
             "last_provider",
-            "unknown"
+            "offline"
         )
 
-        if not reply:
-            reply = "আমি এখন উত্তর দিতে পারছি না।"
+        # fallback safety
+        if not reply or not isinstance(reply, str):
+            reply = "আমি এখন এই প্রশ্নের উত্তর দিতে পারছি না।"
 
-        print("🤖 AI REPLY:", reply)
-        print("⚙️ PROVIDER:", provider)
-        print("=" * 50)
+        print("REPLY:", reply)
+        print("PROVIDER:", provider)
+        print("=" * 50 + "\n")
 
         return ChatResponse(
             success=True,
@@ -89,15 +95,16 @@ def chat(request: ChatRequest):
         )
 
     except HTTPException as e:
-        print("⚠️ HTTP ERROR:", e.detail)
+        print("HTTP ERROR:", e.detail)
         raise e
 
     except Exception as e:
-        print("🔥 CHAT API CRASH:", str(e))
+        print("SYSTEM ERROR:", str(e))
 
-        raise HTTPException(
-            status_code=500,
-            detail=f"Server Error: {str(e)}"
+        return ChatResponse(
+            success=False,
+            reply="Server error হয়েছে, পরে চেষ্টা করুন।",
+            provider="error"
         )
 
 
@@ -112,23 +119,23 @@ def detect_intent(request: ChatRequest):
         if not text:
             raise HTTPException(
                 status_code=400,
-                detail="Message cannot be empty."
+                detail="Empty message"
             )
 
-        print("=" * 50)
-        print("🧠 INTENT INPUT:", text)
+        print("\n" + "=" * 50)
+        print("INTENT INPUT:", text)
 
         result = ai_engine.detect_intent(text)
 
-        if not result:
+        if not isinstance(result, dict):
             result = {
                 "intent": "chat",
                 "target": "",
                 "message": ""
             }
 
-        print("🧠 INTENT OUTPUT:", result)
-        print("=" * 50)
+        print("INTENT OUTPUT:", result)
+        print("=" * 50 + "\n")
 
         return {
             "success": True,
@@ -136,24 +143,16 @@ def detect_intent(request: ChatRequest):
         }
 
     except HTTPException as e:
-        print("⚠️ INTENT HTTP ERROR:", e.detail)
+        print("INTENT HTTP ERROR:", e.detail)
         raise e
 
     except Exception as e:
-        print("🔥 INTENT ERROR:", str(e))
+        print("INTENT ERROR:", str(e))
 
-        raise HTTPException(
-            status_code=500,
-            detail=f"Intent Error: {str(e)}"
-        )
-
-
-# ==================================================
-# TEST ENDPOINT
-# ==================================================
-@router.get("/ping")
-def ping():
-    return {
-        "success": True,
-        "message": "Chat API running perfectly."
-    }
+        return {
+            "success": False,
+            "data": {
+                "intent": "chat",
+                "message": "Intent error"
+            }
+        }

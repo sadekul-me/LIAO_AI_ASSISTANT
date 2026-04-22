@@ -1,42 +1,51 @@
 import os
 import tempfile
 import speech_recognition as sr
+from typing import Dict, Any, Optional
 
 
 class SpeechToTextService:
     """
-    LIAO AI Assistant Speech To Text Service
+    Speech To Text Service
 
     Responsibilities:
-    - microphone listening
-    - voice recognition
-    - ambient noise adjustment
-    - language support
-    - safe fallback handling
+    - Microphone input handling
+    - Speech recognition (Google API)
+    - File-based transcription
+    - Safe error handling
     """
 
     def __init__(self):
         self.recognizer = sr.Recognizer()
 
+        # tuned defaults for stability
         self.recognizer.energy_threshold = 300
-        self.recognizer.pause_threshold = 0.8
         self.recognizer.dynamic_energy_threshold = True
+        self.recognizer.pause_threshold = 0.8
 
+    # --------------------------------------
+    # MICROPHONE LISTEN
+    # --------------------------------------
     def listen_once(
         self,
         language: str = "bn-BD",
         timeout: int = 5,
         phrase_time_limit: int = 10
-    ) -> dict:
+    ) -> Dict[str, Any]:
         """
-        Listen once from microphone
+        Capture voice from microphone once
         """
+
         try:
             with sr.Microphone() as source:
+                print("🎤 Calibrating microphone...")
+
                 self.recognizer.adjust_for_ambient_noise(
                     source,
                     duration=1
                 )
+
+                print("🟢 Listening...")
 
                 audio = self.recognizer.listen(
                     source,
@@ -44,39 +53,40 @@ class SpeechToTextService:
                     phrase_time_limit=phrase_time_limit
                 )
 
-            text = self.recognize_audio(
-                audio=audio,
-                language=language
-            )
+            text = self._recognize(audio, language)
 
             return {
                 "success": True,
                 "text": text,
-                "message": "Voice captured successfully."
+                "message": "Voice captured successfully"
             }
 
         except sr.WaitTimeoutError:
             return {
                 "success": False,
                 "text": "",
-                "message": "No voice detected."
+                "message": "No voice detected"
             }
 
-        except Exception as error:
+        except Exception as e:
             return {
                 "success": False,
                 "text": "",
-                "message": f"Microphone error: {error}"
+                "message": f"Microphone error: {str(e)}"
             }
 
-    def recognize_audio(
+    # --------------------------------------
+    # SPEECH RECOGNITION CORE
+    # --------------------------------------
+    def _recognize(
         self,
         audio,
         language: str = "bn-BD"
     ) -> str:
         """
-        Convert audio to text using Google Speech Recognition
+        Convert speech to text
         """
+
         try:
             text = self.recognizer.recognize_google(
                 audio,
@@ -94,43 +104,45 @@ class SpeechToTextService:
         except Exception:
             return ""
 
+    # --------------------------------------
+    # FILE TRANSCRIPTION
+    # --------------------------------------
     def transcribe_wav_file(
         self,
         file_path: str,
         language: str = "bn-BD"
-    ) -> dict:
+    ) -> Dict[str, Any]:
         """
-        Convert local WAV audio file to text
+        Transcribe audio file
         """
+
         try:
             with sr.AudioFile(file_path) as source:
                 audio = self.recognizer.record(source)
 
-            text = self.recognize_audio(
-                audio=audio,
-                language=language
-            )
+            text = self._recognize(audio, language)
 
             return {
                 "success": True,
                 "text": text,
-                "message": "File transcribed successfully."
+                "message": "File transcribed successfully"
             }
 
-        except Exception as error:
+        except Exception as e:
             return {
                 "success": False,
                 "text": "",
-                "message": f"Transcription failed: {error}"
+                "message": f"Transcription failed: {str(e)}"
             }
 
-    def save_temp_audio(
-        self,
-        audio_data
-    ) -> str:
+    # --------------------------------------
+    # TEMP FILE HANDLING
+    # --------------------------------------
+    def save_temp_audio(self, audio_data) -> Optional[str]:
         """
-        Save temporary wav file if needed
+        Save temporary wav file
         """
+
         try:
             temp_file = tempfile.NamedTemporaryFile(
                 delete=False,
@@ -143,15 +155,13 @@ class SpeechToTextService:
             return temp_file.name
 
         except Exception:
-            return ""
+            return None
 
-    def delete_temp_file(
-        self,
-        file_path: str
-    ):
+    def delete_temp_file(self, file_path: str):
         """
-        Remove temp file safely
+        Safe file cleanup
         """
+
         try:
             if file_path and os.path.exists(file_path):
                 os.remove(file_path)
@@ -160,11 +170,15 @@ class SpeechToTextService:
             pass
 
 
+# --------------------------------------
+# LOCAL TEST
+# --------------------------------------
 if __name__ == "__main__":
+
     stt = SpeechToTextService()
 
-    print("Speak now...")
+    print("🎤 Speak now...")
 
     result = stt.listen_once()
 
-    print(result)
+    print("Result:", result)

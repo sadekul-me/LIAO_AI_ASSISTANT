@@ -10,13 +10,7 @@ import pygame
 class TextToSpeechService:
     """
     LIAO AI Assistant Text To Speech Service
-
-    Features:
-    - background speech playback
-    - no popup media player
-    - Bangla / English voices
-    - thread-safe speaking lock
-    - temp file cleanup
+    Fixed & production stable version
     """
 
     def __init__(self):
@@ -25,18 +19,17 @@ class TextToSpeechService:
         self.default_volume = "+0%"
 
         self._play_lock = threading.Lock()
-
         self._init_audio_engine()
 
     def _init_audio_engine(self):
-        """
-        Initialize pygame mixer once
-        """
         try:
             pygame.mixer.init()
-        except Exception:
-            pass
+        except Exception as e:
+            print("TTS Init Warning:", e)
 
+    # --------------------------------------------------
+    # CORE AUDIO GENERATION
+    # --------------------------------------------------
     async def _generate_audio(
         self,
         text: str,
@@ -45,9 +38,6 @@ class TextToSpeechService:
         rate: str = None,
         volume: str = None
     ):
-        """
-        Generate speech mp3 file
-        """
         communicate = edge_tts.Communicate(
             text=text,
             voice=voice or self.default_voice,
@@ -57,23 +47,24 @@ class TextToSpeechService:
 
         await communicate.save(output_file)
 
+    # --------------------------------------------------
+    # MAIN SPEAK FUNCTION
+    # --------------------------------------------------
     def speak(
         self,
         text: str,
         voice: str = None,
         rate: str = None,
         volume: str = None
-    ) -> dict:
+    ) -> str:
         """
-        Generate and play speech
+        Returns audio file path (API friendly)
         """
-        if not text.strip():
-            return {
-                "success": False,
-                "message": "Empty text provided."
-            }
 
-        temp_path = ""
+        if not text or not text.strip():
+            return ""
+
+        temp_path = None
 
         try:
             temp_file = tempfile.NamedTemporaryFile(
@@ -96,46 +87,31 @@ class TextToSpeechService:
 
             self._play_audio(temp_path)
 
-            self._safe_delete(temp_path)
+            return temp_path
 
-            return {
-                "success": True,
-                "message": "Speech played successfully."
-            }
+        except Exception as e:
+            print("TTS ERROR:", e)
 
-        except Exception as error:
-            self._safe_delete(temp_path)
+            if temp_path and os.path.exists(temp_path):
+                os.remove(temp_path)
 
-            return {
-                "success": False,
-                "message": f"TTS error: {error}"
-            }
+            return ""
 
-    def speak_async(
-        self,
-        text: str,
-        voice: str = None
-    ):
-        """
-        Non-blocking speech
-        """
+    # --------------------------------------------------
+    # ASYNC SPEAK (NON-BLOCKING)
+    # --------------------------------------------------
+    def speak_async(self, text: str, voice: str = None):
         thread = threading.Thread(
             target=self.speak,
             args=(text, voice),
             daemon=True
         )
-
         thread.start()
 
-    def save_to_file(
-        self,
-        text: str,
-        file_path: str,
-        voice: str = None
-    ) -> dict:
-        """
-        Save speech file
-        """
+    # --------------------------------------------------
+    # SAVE FILE ONLY
+    # --------------------------------------------------
+    def save_to_file(self, text: str, file_path: str, voice: str = None) -> bool:
         try:
             asyncio.run(
                 self._generate_audio(
@@ -144,74 +120,51 @@ class TextToSpeechService:
                     voice=voice
                 )
             )
+            return True
+        except Exception as e:
+            print("TTS SAVE ERROR:", e)
+            return False
 
-            return {
-                "success": True,
-                "message": "Audio saved successfully."
-            }
-
-        except Exception as error:
-            return {
-                "success": False,
-                "message": f"Save failed: {error}"
-            }
-
-    def _play_audio(
-        self,
-        file_path: str
-    ):
-        """
-        Background playback without popup
-        """
+    # --------------------------------------------------
+    # AUDIO PLAYBACK
+    # --------------------------------------------------
+    def _play_audio(self, file_path: str):
         try:
             with self._play_lock:
-                pygame.mixer.music.stop()
-                pygame.mixer.music.unload()
+                if not pygame.mixer.get_init():
+                    pygame.mixer.init()
 
+                pygame.mixer.music.stop()
                 pygame.mixer.music.load(file_path)
                 pygame.mixer.music.play()
 
                 while pygame.mixer.music.get_busy():
                     time.sleep(0.1)
 
-        except Exception:
-            pass
+        except Exception as e:
+            print("PLAY ERROR:", e)
 
+    # --------------------------------------------------
+    # STOP AUDIO
+    # --------------------------------------------------
     def stop(self):
-        """
-        Stop current speech
-        """
         try:
             pygame.mixer.music.stop()
         except Exception:
             pass
 
-    def set_voice(
-        self,
-        voice_name: str
-    ):
-        """
-        Change default voice
-        """
+    # --------------------------------------------------
+    # VOICE CONTROL
+    # --------------------------------------------------
+    def set_voice(self, voice_name: str):
         self.default_voice = voice_name
 
-    def _safe_delete(
-        self,
-        file_path: str
-    ):
-        """
-        Delete temp file safely
-        """
+    # --------------------------------------------------
+    # SAFE CLEANUP
+    # --------------------------------------------------
+    def cleanup(self, file_path: str):
         try:
             if file_path and os.path.exists(file_path):
                 os.remove(file_path)
         except Exception:
             pass
-
-
-if __name__ == "__main__":
-    tts = TextToSpeechService()
-
-    tts.speak(
-        "হ্যালো সাদিক, আমি লিয়াও অ্যাসিস্ট্যান্ট। আজকে কী কাজ করবো?"
-    )
