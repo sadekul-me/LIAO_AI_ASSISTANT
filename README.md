@@ -1,63 +1,149 @@
 # LIAO AI Assistant
 
-LIAO AI Assistant is a desktop-based intelligent assistant system designed to help users interact with their computer using natural language, voice commands, and automation tools.
+LIAO AI Assistant is a full-stack local AI assistant system designed to interact with the computer using text, voice, and automation. It provides intelligent conversation, system control, and productivity features through a modular and scalable architecture.
 
-The project focuses on building a modular, extensible, and secure assistant capable of handling everyday computer tasks such as application control, file management, browsing, and system operations.
-
----
-
-## 📌 Project Overview
-
-This system acts as a local assistant that runs on a user's machine and provides an interactive interface for executing commands through text or voice input.
-
-The assistant is structured to separate core logic, services, APIs, and automation layers for better maintainability and scalability.
+The system is designed to run locally for privacy, speed, and full user control.
 
 ---
 
-## 🎯 Key Features
+# Project Overview
 
-- Voice-based interaction system
-- Text-based chat interface
-- Application and system control
-- Browser automation
-- File and directory management
-- Modular API architecture
-- Local database for memory storage
-- Extensible service-based design
+LIAO AI Assistant works as a bridge between human intent and system execution. It processes natural language input and performs actions through structured backend services and a modern React.js frontend interface.
 
 ---
 
-## 🧱 Project Architecture
+# System Architecture
 
-The project follows a modular structure:
+The project is divided into two main parts:
 
-- **backend/** → Core logic, APIs, services, and automation
-- **voice_engine/** → Voice processing and wake word detection
-- **config/** → Configuration and system settings
-- **data/** → Local storage and logs
-- **integrations/** → External service integrations
-- **frontend/** → Optional user interface
-- **tests/** → Unit testing modules
-- **scripts/** → Setup and automation scripts
+- 🧠 Backend (Python / FastAPI) → AI engine, automation, system control  
+- 💻 Frontend (React.js) → UI, chat interface, voice interaction, dashboard  
 
 ---
 
-## ⚙️ Technologies Used
+# Features
 
-- Python
-- FastAPI
-- SQLAlchemy
-- SQLite
-- Text-to-Speech (Edge TTS)
-- Speech Recognition (Whisper or equivalent)
-- Automation tools (PyAutoGUI)
-- REST API architecture
+## AI System
+- Natural language chat system  
+- Context-aware responses  
+- Personality-driven interaction  
+- Memory-based conversation handling  
+
+## Voice System
+- Speech-to-text input  
+- Text-to-speech output  
+- Wake word detection support  
+
+## System Control
+- Application automation  
+- File and folder management  
+- System-level commands  
+
+## Browser Automation
+- Web search handling  
+- Navigation automation  
+- Task-based browsing  
+
+## Frontend UI
+- Real-time chat interface  
+- Voice interaction UI  
+- AI avatar visualization  
+- Settings panel  
+- Responsive dashboard  
 
 ---
 
-## 🚀 Getting Started
+# Backend Structure
 
-### 1. Clone the repository
 ```bash
+backend/
+│
+├── api/
+├── core/
+├── services/
+├── automation/
+├── security/
+├── database/
+├── utils/
+├── voice_engine/
+├── integrations/
+├── data/
+├── tests/
+├── scripts/
+├── config/
+├── main.py
+```
+
+```
+Frontend Structure (React.js)
+src/
+│
+├── components/
+│   ├── layout/
+│   │   ├── Sidebar.jsx
+│   │   ├── Topbar.jsx
+│   │   └── MainLayout.jsx
+│   │
+│   ├── chat/
+│   │   ├── ChatPanel.jsx
+│   │   ├── ChatMessage.jsx
+│   │   └── ChatInput.jsx
+│   │
+│   ├── ai/
+│   │   ├── Avatar.jsx
+│   │   └── VoiceWave.jsx
+│   │
+│   └── settings/
+│       └── SettingsPanel.jsx
+│
+├── pages/
+│   └── Dashboard.jsx
+│
+├── hooks/
+│   └── useAI.js
+│
+├── services/
+│   └── api.js
+│
+├── styles/
+│   └── global.css
+│
+├── App.jsx
+└── main.jsx
+```
+Technology Stack
+Backend
+Python
+FastAPI
+SQLite
+SQLAlchemy
+Whisper / Speech Recognition
+Edge TTS
+PyAutoGUI
+Frontend
+React.js
+JavaScript (ES6+)
+CSS
+Fetch / Axios API handling
+Setup
+Backend
 git clone <repo-url>
 cd LIAO_AI_ASSISTANT
+pip install -r requirements.txt
+uvicorn backend.main:app --reload
+Frontend
+cd frontend
+npm install
+npm run dev
+Environment Variables
+GEMINI_API_KEY=your_key
+GROQ_API_KEY=your_key
+OPENROUTER_API_KEY=your_key
+License
+
+LIAO AI Assistant Source License v1.0
+
+Copyright (c) 2026 Sadekul Islam
+All rights reserved.
+
+This software is proprietary. Unauthorized use, copying, modification, or distribution is strictly prohibited.
