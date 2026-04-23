@@ -1,17 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import axios from "axios";
-
-/* ==================================================
-   🔧 CONFIG
-================================================== */
-const BASE_URL =
-  import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
-
-const CHAT_API = `${BASE_URL}/chat/`;
-const HEALTH_API = `${BASE_URL}/`;
-const TTS_API = `${BASE_URL}/voice/tts`;
-
-const STORAGE_KEY = "liao_chat_history";
+import { sendMessage as apiSendMessage, getTTS, getSystemStatus } from "../services/api";
 
 /* ==================================================
    🤖 useAI Hook
@@ -25,9 +13,11 @@ export default function useAI() {
 
   const sendingRef = useRef(false);
 
-  /* ==================================================
-     🚀 LOAD CHAT HISTORY
-  ================================================== */
+  const STORAGE_KEY = "liao_chat_history";
+
+  /* =========================
+     INIT
+  ========================= */
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
 
@@ -44,9 +34,9 @@ export default function useAI() {
     checkBackendHealth();
   }, []);
 
-  /* ==================================================
-     💾 SAVE HISTORY
-  ================================================== */
+  /* =========================
+     SAVE CHAT
+  ========================= */
   useEffect(() => {
     if (messages.length > 0) {
       localStorage.setItem(
@@ -56,50 +46,42 @@ export default function useAI() {
     }
   }, [messages]);
 
-  /* ==================================================
-     👋 WELCOME MESSAGE
-  ================================================== */
+  /* =========================
+     WELCOME
+  ========================= */
   const loadWelcome = () => {
     setMessages([
       {
-        text: "Hello! I'm LIAO AI Assistant. How can I help you?",
+        text: "Hello! I'm LIAO AI Assistant.",
         isUser: false,
         time: getTime(),
       },
     ]);
   };
 
-  /* ==================================================
-     🕒 TIME FORMAT
-  ================================================== */
-  const getTime = () => {
-    return new Date().toLocaleTimeString([], {
+  const getTime = () =>
+    new Date().toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
     });
-  };
 
-  /* ==================================================
-     🌐 BACKEND HEALTH CHECK
-  ================================================== */
+  /* =========================
+     HEALTH CHECK
+  ========================= */
   const checkBackendHealth = async () => {
     try {
-      await axios.get(HEALTH_API, {
-        timeout: 3000,
-      });
-
+      await getSystemStatus();
       setIsOnline(true);
     } catch {
       setIsOnline(false);
     }
   };
 
-  /* ==================================================
-     💬 SEND MESSAGE
-  ================================================== */
+  /* =========================
+     SEND MESSAGE
+  ========================= */
   const sendMessage = async (text) => {
-    const cleanText = text.trim();
-
+    const cleanText = (text || "").trim();
     if (!cleanText || sendingRef.current) return;
 
     sendingRef.current = true;
@@ -119,42 +101,18 @@ export default function useAI() {
 
       if (isOnline) {
         try {
-          const res = await axios.post(
-            CHAT_API,
-            {
-              message: cleanText,
-              context: "",
-            },
-            {
-              timeout: 30000,
-            }
-          );
+          const res = await apiSendMessage(cleanText);
 
-          replyText =
-            res?.data?.reply ||
-            "";
-
-          backendProvider =
-            res?.data?.provider ||
-            "online";
-
-        } catch (error) {
-          console.warn(
-            "Backend chat failed:",
-            error.message
-          );
+          replyText = res?.reply || "";
+          backendProvider = res?.provider || "online";
+        } catch (err) {
+          console.warn("Backend error:", err.message);
         }
       }
 
-      /* =========================
-         🤖 FALLBACK MODE
-      ========================= */
       if (!replyText) {
-        replyText = generateFallback(cleanText);
-        backendProvider = "offline";
+        replyText = fallback(cleanText);
       }
-
-      await delay(500);
 
       const aiMsg = {
         text: replyText,
@@ -165,16 +123,12 @@ export default function useAI() {
       setMessages((prev) => [...prev, aiMsg]);
       setProvider(backendProvider);
 
-      /* =========================
-         🔊 AUTO SPEAK
-      ========================= */
       speakText(replyText);
-
     } catch (error) {
       setMessages((prev) => [
         ...prev,
         {
-          text: "⚠️ Something went wrong.",
+          text: "Error occurred",
           isUser: false,
           time: getTime(),
         },
@@ -185,97 +139,53 @@ export default function useAI() {
     sendingRef.current = false;
   };
 
-  /* ==================================================
-     🔊 TEXT TO SPEECH
-  ================================================== */
+  /* =========================
+     TTS
+  ========================= */
   const speakText = async (text) => {
     try {
       if (!isOnline) return;
-
-      await axios.post(TTS_API, {
-        text,
-      });
-    } catch (error) {
-      console.warn(
-        "TTS failed:",
-        error.message
-      );
+      await getTTS(text);
+    } catch (e) {
+      console.warn("TTS failed:", e.message);
     }
   };
 
-  /* ==================================================
-     🎤 VOICE TOGGLE
-  ================================================== */
-  const toggleListening = () => {
-    setIsListening((prev) => !prev);
-  };
-
-  /* ==================================================
-     🧹 CLEAR CHAT
-  ================================================== */
+  /* =========================
+     CLEAR CHAT
+  ========================= */
   const clearChat = () => {
     localStorage.removeItem(STORAGE_KEY);
 
     setMessages([
       {
-        text: "Chat cleared. How can I help again?",
+        text: "Chat cleared.",
         isUser: false,
         time: getTime(),
       },
     ]);
   };
 
-  /* ==================================================
-     🤖 OFFLINE FALLBACK AI
-  ================================================== */
-  const generateFallback = (text) => {
-    const lower = text.toLowerCase();
-
-    if (
-      lower.includes("hello") ||
-      lower.includes("hi")
-    ) {
-      return "Hey 👋 How can I help you today?";
-    }
-
-    if (
-      lower.includes("code")
-    ) {
-      return "I can help you write and debug code 💻";
-    }
-
-    if (
-      lower.includes("open")
-    ) {
-      return "App automation feature is available ⚡";
-    }
-
-    if (
-      lower.includes("ai")
-    ) {
-      return "AI system is running in offline demo mode 🤖";
-    }
-
-    if (
-      lower.includes("name")
-    ) {
-      return "My name is LIAO AI Assistant.";
-    }
-
-    return "I'm running in offline mode. Connect backend for full intelligence 🚀";
+  /* =========================
+     TOGGLE
+  ========================= */
+  const toggleListening = () => {
+    setIsListening((p) => !p);
   };
 
-  /* ==================================================
-     ⏱️ DELAY
-  ================================================== */
-  const delay = (ms) =>
-    new Promise((resolve) =>
-      setTimeout(resolve, ms)
-    );
+  /* =========================
+     FALLBACK AI
+  ========================= */
+  const fallback = (text) => {
+    const t = text.toLowerCase();
 
-  /* ==================================================
-     📦 RETURN
-  ================================================== */
+    if (t.includes("hello")) return "Hey 👋";
+    if (t.includes("code")) return "Coding help ready 💻";
+    if (t.includes("name")) return "I am LIAO AI Assistant";
+
+    return "Offline mode active 🚀";
+  };
+
   return {
     messages,
     sendMessage,

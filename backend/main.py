@@ -20,7 +20,7 @@ app = FastAPI(
 # ==================================================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # later you can restrict
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -44,6 +44,19 @@ def health_check():
     return {
         "success": True,
         "message": "System is healthy"
+    }
+
+
+# ==================================================
+# SYSTEM STATUS ENDPOINT (FIXED)
+# ==================================================
+@app.get("/system/status")
+def system_status():
+    return {
+        "status": "online",
+        "project": "LIAO AI Assistant",
+        "version": "1.0.0",
+        "message": "System running successfully"
     }
 
 
