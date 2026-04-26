@@ -1,9 +1,9 @@
-import React, { useState, useRef } from "react";
+import React, { useRef } from "react";
 import {
   Home, MessageCircle, Mic, Settings, Code2, Wrench,
   FileText, Cpu, ChevronDown, Shield, Upload, Sparkles
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import clsx from "clsx";
 
 const menu = [
@@ -18,11 +18,10 @@ const menu = [
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
-const Sidebar = () => {
-  const [active, setActive] = useState("dashboard");
-  const [avatar, setAvatar] = useState(null);
-  const [name, setName] = useState("Sadekul Islam");
-  const [editName, setEditName] = useState(false);
+const Sidebar = ({ active, setActive }) => {
+  const [avatar, setAvatar] = React.useState(null);
+  const [name, setName] = React.useState("Sadekul Islam");
+  const [editName, setEditName] = React.useState(false);
   const fileRef = useRef(null);
 
   const handleImage = (e) => {
@@ -33,7 +32,7 @@ const Sidebar = () => {
   return (
     <aside className="relative flex h-screen w-full flex-col justify-between overflow-hidden border-r border-white/5 bg-gradient-to-b from-[#080E1C] via-[#050914] to-[#03060E] px-4 py-6 md:w-[280px] xl:w-[300px]">
       
-      {/* 🔮 Improved Ambient Glows: একটু বেশি ইনটেনসিটি যাতে ডার্কনেস কমে */}
+      {/* 🔮 Ambient Glows */}
       <div className="pointer-events-none absolute -left-20 top-0 h-64 w-64 rounded-full bg-cyan-600/15 blur-[120px]" />
       <div className="pointer-events-none absolute -right-20 bottom-0 h-64 w-64 rounded-full bg-blue-600/10 blur-[120px]" />
 
@@ -92,13 +91,13 @@ const Sidebar = () => {
       {/* BOTTOM SECTION */}
       <div className="relative z-10 flex flex-col gap-6">
         
-        {/* NEON AI CORE (CENTER) */}
+        {/* NEON AI CORE */}
         <div className="relative flex flex-col items-center py-4">
           <div className="group relative cursor-pointer">
             <div className="absolute inset-0 animate-[spin_6s_linear_infinite] rounded-full bg-gradient-to-r from-cyan-500 via-blue-500 to-cyan-400 opacity-20 blur-xl group-hover:opacity-50" />
             <div className="relative flex h-20 w-20 items-center justify-center rounded-full border border-white/10 bg-[#0F172A]/60 shadow-2xl backdrop-blur-2xl">
-               <div className="h-12 w-12 rounded-full border-2 border-dashed border-cyan-500/30 animate-[spin_10s_linear_infinite] absolute" />
-               <span className="bg-gradient-to-br from-cyan-300 to-blue-500 bg-clip-text text-xl font-black text-transparent">AI</span>
+                <div className="h-12 w-12 rounded-full border-2 border-dashed border-cyan-500/30 animate-[spin_10s_linear_infinite] absolute" />
+                <span className="bg-gradient-to-br from-cyan-300 to-blue-500 bg-clip-text text-xl font-black text-transparent">AI</span>
             </div>
           </div>
           <p className="mt-4 text-[9px] font-bold tracking-[3px] text-slate-500 uppercase">System Stable</p>
@@ -113,7 +112,7 @@ const Sidebar = () => {
               className="relative h-11 w-11 shrink-0 cursor-pointer overflow-hidden rounded-xl border border-white/10 shadow-inner"
               onClick={() => fileRef.current.click()}
             >
-              <img src={avatar || "/api/placeholder/48/48"} alt="avatar" className="h-full w-full object-cover" />
+              <img src={avatar || "https://ui-avatars.com/api/?name=Sadik&background=050914&color=fff"} alt="avatar" className="h-full w-full object-cover" />
               <div className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">
                 <Upload size={14} className="text-white" />
               </div>
