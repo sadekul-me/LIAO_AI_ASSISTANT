@@ -1,0 +1,67 @@
+/* styles/theme.css */
+
+/* 🔹 Light Theme (optional future use) */
+.light {
+  --bg-primary: #f9fafb;
+  --bg-secondary: #ffffff;
+  --glass-bg: rgba(0, 0, 0, 0.04);
+
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+
+  --accent: #6366f1;
+  --accent-2: #a855f7;
+
+  --border: rgba(0, 0, 0, 0.1);
+}
+
+/* 🔹 Dark Theme (default) */
+.dark {
+  --bg-primary: #0b0f1a;
+  --bg-secondary: #111827;
+  --glass-bg: rgba(255, 255, 255, 0.05);
+
+  --text-primary: #ffffff;
+  --text-secondary: #9ca3af;
+
+  --accent: #6366f1;
+  --accent-2: #a855f7;
+
+  --border: rgba(255, 255, 255, 0.1);
+}
+
+/* 🔹 Apply Theme */
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* 🔹 Smooth Theme Transition */
+* {
+  transition: background 0.25s ease, color 0.25s ease, border 0.25s ease;
+}
+
+/* 🔹 Glass Override for Theme */
+.theme-glass {
+  background: var(--glass-bg);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(16px);
+}
+
+/* 🔹 Accent Utilities */
+.bg-accent {
+  background: var(--accent);
+}
+
+.bg-accent-gradient {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+
+.text-accent {
+  color: var(--accent);
+}
+
+/* 🔹 Border Utility */
+.border-theme {
+  border-color: var(--border);
+}

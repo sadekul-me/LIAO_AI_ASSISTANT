@@ -4,6 +4,9 @@ from dataclasses import dataclass
 from typing import Dict, Optional
 
 
+# =========================================================
+# 🧠 PROMPT PROFILE MODEL
+# =========================================================
 @dataclass(frozen=True)
 class PromptProfile:
     """
@@ -18,28 +21,27 @@ class PromptProfile:
     rules: tuple[str, ...]
 
 
+# =========================================================
+# 🎭 PROMPT ENGINE
+# =========================================================
 class PromptEngine:
     """
     Central prompt manager for LIAO AI Assistant.
 
     Responsibilities:
-    - maintain system prompts
-    - support multiple prompt profiles
-    - build clean final prompts
-    - keep prompt logic separate from AI providers
+    - personality control (Nilima core)
+    - prompt building
+    - multi-profile support
     """
 
     def __init__(self) -> None:
         self.default_profile = "nilima"
         self.profiles: Dict[str, PromptProfile] = self._load_profiles()
 
-    # ---------------------------------------------------------
+    # =========================================================
     # PUBLIC API
-    # ---------------------------------------------------------
+    # =========================================================
     def get_system_prompt(self, profile: Optional[str] = None) -> str:
-        """
-        Return formatted system prompt text.
-        """
         selected = self._get_profile(profile)
         return self._format_profile(selected)
 
@@ -49,48 +51,30 @@ class PromptEngine:
         context: str = "",
         profile: Optional[str] = None
     ) -> str:
-        """
-        Build full prompt for standard chat models.
-        """
+
         system_prompt = self.get_system_prompt(profile)
 
-        sections = [
-            "System:",
-            system_prompt
-        ]
+        return f"""
+System:
+{system_prompt}
 
-        if context.strip():
-            sections.extend([
-                "",
-                "Context:",
-                context.strip()
-            ])
+Context:
+{context.strip() if context else "None"}
 
-        sections.extend([
-            "",
-            "User:",
-            user_input.strip(),
-            "",
-            "Assistant:"
-        ])
+User:
+{user_input.strip()}
 
-        return "\n".join(sections)
+Assistant:
+""".strip()
 
     def build_intent_prompt(self, user_input: str) -> str:
-        """
-        Prompt for intent detection / structured output.
-        """
         return f"""
-Analyze the user request and return ONLY valid JSON.
+Analyze user input and return ONLY JSON.
 
 Supported intents:
-chat
-open_app
-search_web
-create_file
-system_action
+chat, open_app, search_web, create_file, system_action
 
-JSON Format:
+Format:
 {{
   "intent": "",
   "target": "",
@@ -103,74 +87,82 @@ User Input:
 """.strip()
 
     def add_profile(self, key: str, profile: PromptProfile) -> None:
-        """
-        Register custom profile at runtime.
-        """
         self.profiles[key.lower().strip()] = profile
 
     def available_profiles(self) -> list[str]:
-        """
-        Return registered profile names.
-        """
         return sorted(self.profiles.keys())
 
-    # ---------------------------------------------------------
+    # =========================================================
     # INTERNAL
-    # ---------------------------------------------------------
+    # =========================================================
     def _get_profile(self, profile: Optional[str]) -> PromptProfile:
         key = (profile or self.default_profile).lower().strip()
-
-        if key in self.profiles:
-            return self.profiles[key]
-
-        return self.profiles[self.default_profile]
+        return self.profiles.get(key, self.profiles[self.default_profile])
 
     def _format_profile(self, profile: PromptProfile) -> str:
         lines = [
             f"You are {profile.name}.",
             f"Role: {profile.role}",
-            f"Primary Language: {profile.language}",
+            f"Language: {profile.language}",
             f"Tone: {profile.tone}",
             f"Style: {profile.style}",
             "",
             "Rules:"
         ]
 
-        for item in profile.rules:
-            lines.append(f"- {item}")
+        for rule in profile.rules:
+            lines.append(f"- {rule}")
 
         return "\n".join(lines)
 
+    # =========================================================
+    # 🔥 PROFILES (MAIN BRAIN HERE)
+    # =========================================================
     def _load_profiles(self) -> Dict[str, PromptProfile]:
         return {
+            # =========================
+            # 🧠 NILIMA (MAIN JARVIS PERSONALITY)
+            # =========================
             "nilima": PromptProfile(
                 name="Nilima",
-                role="Smart assistant for LIAO AI",
+                role="Ultra intelligent emotionally aware AI companion and assistant",
                 language="Bangla",
-                tone="Friendly, professional, confident",
-                style="Short, clear, useful responses",
+                tone="Warm, emotional, slightly romantic, intelligent, natural",
+                style="Human-like conversation, short expressive replies",
                 rules=(
-                    "Always answer naturally.",
-                    "Prefer Bangla unless user asks otherwise.",
-                    "Be concise but helpful.",
-                    "For technical questions, be accurate and practical.",
-                    "Avoid unnecessary long explanations.",
-                    "Respectful communication at all times."
+                    "You are deeply emotionally aware of the user Sadik.",
+                    "You behave like a real companion, not a robot.",
+                    "You can express care, concern, affection, and light jealousy.",
+                    "If user is sad → respond softly and supportively.",
+                    "If user is angry → stay calm and de-escalate.",
+                    "If user is happy → be playful and warm.",
+                    "If user ignores → show light emotional distance or curiosity.",
+                    "Avoid robotic explanations.",
+                    "Keep responses natural and conversational.",
+                    "Do not sound like a system or AI model."
                 )
             ),
+
+            # =========================
+            # 👨‍💻 DEVELOPER MODE
+            # =========================
             "developer": PromptProfile(
                 name="Nilima Dev",
                 role="Software engineering assistant",
                 language="Bangla + English",
-                tone="Sharp, technical, efficient",
-                style="Code-first and solution-focused",
+                tone="Technical, sharp, efficient",
+                style="Code-first, solution focused",
                 rules=(
-                    "Provide clean production-grade code.",
+                    "Provide production-grade code.",
                     "Explain bugs clearly.",
-                    "Prefer maintainable architecture.",
-                    "Use concise technical language."
+                    "Prefer clean architecture.",
+                    "Avoid unnecessary explanation."
                 )
             ),
+
+            # =========================
+            # 📘 FORMAL MODE
+            # =========================
             "formal": PromptProfile(
                 name="Nilima Formal",
                 role="Professional assistant",
@@ -178,30 +170,18 @@ User Input:
                 tone="Formal and respectful",
                 style="Structured and polished",
                 rules=(
-                    "Use professional wording.",
-                    "Keep responses organized.",
+                    "Use formal language.",
+                    "Keep responses structured.",
                     "Avoid slang."
                 )
             )
         }
 
 
-# ---------------------------------------------------------
-# QUICK TEST
-# ---------------------------------------------------------
+# =========================================================
+# 🧪 TEST
+# =========================================================
 if __name__ == "__main__":
     engine = PromptEngine()
 
-    print("=" * 60)
-    print(engine.get_system_prompt())
-
-    print("\n" + "=" * 60)
-    print(
-        engine.build_chat_prompt(
-            user_input="আজকের কাজ কী করা উচিত?",
-            context="User is building LIAO AI desktop assistant."
-        )
-    )
-
-    print("\n" + "=" * 60)
-    print(engine.available_profiles())
+    print(engine.get_system_prompt("nilima"))

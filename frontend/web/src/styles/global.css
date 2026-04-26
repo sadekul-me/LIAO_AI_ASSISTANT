@@ -1,126 +1,50 @@
+/* styles/global.css */
+
+/* 🔹 Google Font */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap");
+
+/* 🔹 Tailwind Base */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* =========================
-   🌌 ROOT THEME (AI DARK)
-========================= */
+/* 🔹 Root Theme Variables */
 :root {
-  --bg-main: #0B0F19;
-  --accent-cyan: #00F5FF;
-  --accent-purple: #8A2BE2;
+  --bg-primary: #0b0f1a;
+  --bg-secondary: #111827;
+  --glass-bg: rgba(255, 255, 255, 0.05);
+
+  --text-primary: #ffffff;
+  --text-secondary: #9ca3af;
+
+  --accent: #6366f1;
+  --accent-2: #a855f7;
+
+  --border: rgba(255, 255, 255, 0.1);
 }
 
-/* =========================
-   🧱 BASE RESET
-========================= */
+/* 🔹 Reset */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
+/* 🔹 Body Background (Ultra Pro Gradient) */
 body {
-  background: var(--bg-main);
-  color: white;
   font-family: "Inter", sans-serif;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(99, 102, 241, 0.15), transparent 40%),
+    radial-gradient(circle at 80% 0%, rgba(168, 85, 247, 0.15), transparent 40%),
+    radial-gradient(circle at 50% 100%, rgba(236, 72, 153, 0.1), transparent 40%),
+    #0b0f1a;
+
+  color: var(--text-primary);
+  min-height: 100vh;
   overflow: hidden;
 }
 
-/* =========================
-   ✨ GLASS EFFECT
-========================= */
-.glass {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-/* =========================
-   🔥 GLOW EFFECTS
-========================= */
-.glow-cyan {
-  box-shadow: 0 0 20px rgba(0, 245, 255, 0.6);
-}
-
-.glow-purple {
-  box-shadow: 0 0 20px rgba(138, 43, 226, 0.6);
-}
-
-/* =========================
-   🌀 ANIMATIONS
-========================= */
-
-/* slow spin */
-@keyframes spin-slow {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.animate-spin-slow {
-  animation: spin-slow 8s linear infinite;
-}
-
-/* pulse glow */
-@keyframes pulse-glow {
-  0% {
-    transform: scale(1);
-    opacity: 0.6;
-  }
-  50% {
-    transform: scale(1.15);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 0.6;
-  }
-}
-
-.animate-pulse-glow {
-  animation: pulse-glow 2.5s ease-in-out infinite;
-}
-
-/* floating (AI breathing effect) */
-@keyframes float {
-  0% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-8px);
-  }
-  100% {
-    transform: translateY(0px);
-  }
-}
-
-.animate-float {
-  animation: float 4s ease-in-out infinite;
-}
-
-/* fade in */
-@keyframes fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-fade-in {
-  animation: fade-in 0.4s ease-out;
-}
-
-/* =========================
-   📜 SCROLLBAR (clean UI)
-========================= */
+/* 🔹 Scrollbar (Custom) */
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -130,26 +54,64 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.2);
 }
 
-/* =========================
-   🧠 INPUT STYLE
-========================= */
-input, textarea {
-  outline: none;
-  border: none;
+/* 🔹 Glass Effect */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
 }
 
-/* =========================
-   💡 BUTTON HOVER EFFECT
-========================= */
-.button-glow:hover {
-  box-shadow: 0 0 12px var(--accent-cyan);
-  transition: 0.3s ease;
+/* 🔹 Glow Effects */
+.glow-indigo {
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+}
+
+.glow-purple {
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
+}
+
+/* 🔹 Text Gradient */
+.text-gradient {
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* 🔹 Button Smooth */
+button {
+  transition: all 0.2s ease;
+}
+
+/* 🔹 Input Fix */
+input {
+  color: white;
+}
+
+/* 🔹 Selection Color */
+::selection {
+  background: rgba(99, 102, 241, 0.4);
+  color: white;
+}
+
+/* 🔹 Animation (Subtle Pulse) */
+@keyframes softPulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.pulse-soft {
+  animation: softPulse 2s infinite;
 }

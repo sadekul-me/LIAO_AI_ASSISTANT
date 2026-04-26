@@ -11,16 +11,16 @@ from backend.api.voice_api import router as voice_router
 app = FastAPI(
     title="LIAO AI Assistant",
     version="1.0.0",
-    description="Local AI Assistant Backend System"
+    description="Local AI Assistant Backend System (Jarvis Core)"
 )
 
 
 # ==================================================
-# CORS CONFIG (Frontend connect safe)
+# CORS CONFIG
 # ==================================================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # production এ restrict করা লাগবে
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -35,33 +35,37 @@ def home():
     return {
         "status": "running",
         "project": "LIAO AI Assistant",
-        "version": "1.0.0"
-    }
-
-
-@app.get("/health")
-def health_check():
-    return {
-        "success": True,
-        "message": "System is healthy"
+        "mode": "Jarvis AI System"
     }
 
 
 # ==================================================
-# SYSTEM STATUS ENDPOINT (FIXED)
+# HEALTH CHECK
+# ==================================================
+@app.get("/health")
+def health_check():
+    return {
+        "success": True,
+        "message": "System is healthy",
+        "status": "ok"
+    }
+
+
+# ==================================================
+# SYSTEM STATUS
 # ==================================================
 @app.get("/system/status")
 def system_status():
     return {
         "status": "online",
         "project": "LIAO AI Assistant",
-        "version": "1.0.0",
-        "message": "System running successfully"
+        "engine": "Jarvis Core Active",
+        "version": "1.0.0"
     }
 
 
 # ==================================================
-# ROUTER REGISTRATION
+# ROUTES
 # ==================================================
 app.include_router(chat_router)
 app.include_router(voice_router)
@@ -72,15 +76,16 @@ app.include_router(voice_router)
 # ==================================================
 @app.on_event("startup")
 def startup_event():
-    print("\n" + "=" * 50)
+    print("\n" + "=" * 55)
     print("🚀 LIAO AI Assistant Backend Started")
+    print("🧠 Jarvis Core: ACTIVE")
     print("📡 Server: http://127.0.0.1:8000")
     print("📘 Docs: http://127.0.0.1:8000/docs")
-    print("=" * 50 + "\n")
+    print("=" * 55 + "\n")
 
 
 # ==================================================
-# MAIN ENTRY (optional direct run)
+# MAIN RUN
 # ==================================================
 if __name__ == "__main__":
     import uvicorn

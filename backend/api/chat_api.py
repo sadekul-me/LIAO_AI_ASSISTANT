@@ -3,7 +3,6 @@ from pydantic import BaseModel, Field
 
 from backend.core.ai_engine import AIEngine
 
-
 # ==================================================
 # ROUTER INIT
 # ==================================================
@@ -20,7 +19,7 @@ ai_engine = AIEngine()
 # ==================================================
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=5000)
-    context: str = Field(default="")
+    session_id: str = Field(default="default_user")
 
 
 class ChatResponse(BaseModel):
@@ -50,7 +49,7 @@ def ping():
 
 
 # ==================================================
-# MAIN CHAT ENDPOINT
+# MAIN CHAT ENDPOINT (FIXED)
 # ==================================================
 @router.post("/", response_model=ChatResponse)
 def chat(request: ChatRequest):
@@ -66,22 +65,15 @@ def chat(request: ChatRequest):
         print("\n" + "=" * 50)
         print("USER:", user_message)
 
-        # -----------------------------
-        # AI RESPONSE GENERATION
-        # -----------------------------
+        # 🔥 FIX: ONLY session_id pass করো (context না)
         reply = ai_engine.generate_response(
             user_input=user_message,
-            context=request.context
+            session_id=request.session_id
         )
 
-        provider = getattr(
-            ai_engine,
-            "last_provider",
-            "offline"
-        )
+        provider = getattr(ai_engine, "last_provider", "offline")
 
-        # fallback safety
-        if not reply or not isinstance(reply, str):
+        if not reply:
             reply = "আমি এখন এই প্রশ্নের উত্তর দিতে পারছি না।"
 
         print("REPLY:", reply)
@@ -109,7 +101,7 @@ def chat(request: ChatRequest):
 
 
 # ==================================================
-# INTENT DETECTION
+# INTENT DETECTION (FIXED SAFE VERSION)
 # ==================================================
 @router.post("/intent")
 def detect_intent(request: ChatRequest):
@@ -125,13 +117,15 @@ def detect_intent(request: ChatRequest):
         print("\n" + "=" * 50)
         print("INTENT INPUT:", text)
 
-        result = ai_engine.detect_intent(text)
-
-        if not isinstance(result, dict):
+        # 🔥 SAFE fallback (AIEngine এ detect_intent না থাকলে crash হবে না)
+        if hasattr(ai_engine, "detect_intent"):
+            result = ai_engine.detect_intent(text)
+        else:
             result = {
                 "intent": "chat",
                 "target": "",
-                "message": ""
+                "action": "",
+                "message": "intent engine not found"
             }
 
         print("INTENT OUTPUT:", result)
