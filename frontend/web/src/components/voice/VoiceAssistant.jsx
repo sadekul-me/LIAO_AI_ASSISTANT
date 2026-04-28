@@ -7,10 +7,10 @@ const VoiceAssistant = () => {
     <GlassCard
       className="
         flex-1 min-h-0
-        h-[190px]   /* 🔥 আরও height কমানো */
+        h-[190px]   /* 🔥
         p-3
         rounded-3xl
-        bg-gradient-to-br from-[#0b1220] to-[#020617]
+        // bg-gradient-to-br from-[#0b1220] to-[#020617]
         flex flex-col
       "
     >

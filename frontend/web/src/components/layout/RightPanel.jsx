@@ -41,7 +41,6 @@ const RightPanel = () => {
         flex flex-col
         gap-3
         overflow-hidden
-        /* 🔵 Sidebar এর সাথে হুবহু কালার ম্যাচ করা হয়েছে */
         bg-gradient-to-b from-[#080E1C] via-[#050914] to-[#03060E]
         p-2
         z-10

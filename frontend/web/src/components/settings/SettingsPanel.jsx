@@ -1,32 +1,45 @@
-import { motion, AnimatePresence } from "framer-motion";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import {
-  Volume2, Moon, Mic, Cpu, Trash2, Shield, Sparkles, 
-  Settings as SettingsIcon, ChevronRight, Zap, Database, 
-  Fingerprint, Activity, Terminal, Brain, Star, Code, Briefcase,
-  Layers, Gauge, MessageSquare, Globe
+  Volume2,
+  Mic,
+  Shield,
+  Sparkles,
+  Settings as SettingsIcon,
+  ChevronRight,
+  Database,
+  Activity,
+  Brain,
+  Star,
+  Code,
+  Briefcase,
+  Gauge,
+  Globe,
+  Command,
+  Sliders,
 } from "lucide-react";
 
-export default function SettingsPanel({ isOpen, onClearChat }) {
+export default function SettingsPanel({ onClearChat }) {
   const [settings, setSettings] = useState({
     voice: true,
     darkMode: true,
     autoListen: false,
-    provider: "gemini",
+    autoTranslate: true,
+    provider: "Gemini 1.5 Pro",
     personality: "nilima",
-    animations: true,
     secureMode: true,
     verbosity: 75,
     contextDepth: "High",
     temperature: "Balanced",
     language: "Bilingual",
-    autoTranslate: false
   });
 
   useEffect(() => {
     const saved = localStorage.getItem("liao_settings");
     if (saved) {
-      try { setSettings(JSON.parse(saved)); } catch {}
+      try {
+        setSettings(JSON.parse(saved));
+      } catch {}
     }
   }, []);
 
@@ -36,222 +49,316 @@ export default function SettingsPanel({ isOpen, onClearChat }) {
   }, [settings]);
 
   const update = (key, value) => {
-    setSettings((prev) => ({ ...prev, [key]: value }));
+    setSettings((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
   };
 
-  const moods = [
-    { id: "nilima", name: "Nilima Core", icon: Star, desc: "Emotional & Intuitive" },
-    { id: "developer", name: "Dev Mode", icon: Code, desc: "Technical & Precise" },
-    { id: "formal", name: "Formal", icon: Briefcase, desc: "Polished & Business" }
-  ];
-
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="absolute inset-0 z-40 flex flex-col bg-[#050914] overflow-hidden"
-        >
-          {/* 🌌 DYNAMIC BACKGROUND */}
-          <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-[0.03]" />
-            <div className="absolute top-[-10%] left-[20%] w-[60%] h-[40%] bg-cyan-500/5 blur-[120px] rounded-full" />
-          </div>
+    <div className="relative h-full w-full flex items-center justify-center overflow-hidden bg-transparent p-4 lg:p-6">
+      {/* Ambient Background Effects */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute top-[-120px] right-[-80px] h-96 w-96 rounded-full bg-cyan-500/5 blur-[150px]" />
+        <div className="absolute bottom-[-120px] left-[-100px] h-96 w-96 rounded-full bg-blue-500/5 blur-[150px]" />
+      </div>
 
-          {/* 🛰️ HEADER */}
-          <header className="shrink-0 p-8 lg:px-12 border-b border-white/[0.05] bg-white/[0.01] backdrop-blur-xl relative z-20">
-            <div className="max-w-[1600px] mx-auto flex items-center justify-between">
-              <div className="flex items-center gap-6">
-                <div className="relative p-4 bg-[#0A0C16] border border-cyan-400/30 rounded-2xl">
-                  <SettingsIcon size={24} className="text-cyan-400 animate-[spin_20s_linear_infinite]" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-black uppercase tracking-[8px] text-white">System Core</h2>
-                  <p className="text-[10px] font-mono text-cyan-400/40 uppercase tracking-[0.4em] mt-1">Lì Ào Protocol v3.0.2 // Root Access</p>
-                </div>
+      {/* Main Panel Content */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative flex h-full max-h-[850px] w-full max-w-7xl flex-col overflow-hidden rounded-[34px] border border-white/10 bg-[#050810]/60 backdrop-blur-3xl shadow-2xl"
+      >
+        {/* Decorative Grid Accents */}
+        <div className="absolute left-1/3 top-0 h-full w-px bg-gradient-to-b from-transparent via-cyan-500/10 to-transparent" />
+        <div className="absolute right-1/3 top-0 h-full w-px bg-gradient-to-b from-transparent via-white/5 to-transparent" />
+
+        {/* Header */}
+        <header className="relative z-10 flex shrink-0 items-center justify-between border-b border-white/5 bg-white/[0.02] px-8 py-6">
+          <div className="flex items-center gap-5">
+            <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-4 shadow-[0_0_20px_rgba(6,182,212,0.15)]">
+              <SettingsIcon
+                size={22}
+                className="text-cyan-400 animate-[spin_12s_linear_infinite]"
+              />
+            </div>
+            <div>
+              <h2 className="text-sm font-black uppercase tracking-[0.42em] text-white">
+                System Configuration
+              </h2>
+              <div className="mt-1 flex items-center gap-3 text-[10px] font-mono uppercase tracking-widest text-cyan-400/60">
+                <span>Node: SADIK_ENG</span>
+                <span className="h-1 w-1 rounded-full bg-slate-700" />
+                <span>Protocol: v3.0.2</span>
               </div>
             </div>
-          </header>
+          </div>
+        </header>
 
-          {/* 🎛️ BALANCED GRID CONTENT */}
-          <div className="flex-1 p-8 lg:p-12 overflow-hidden relative z-20">
-            <div className="max-w-[1600px] mx-auto h-full flex flex-col">
-              
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 flex-1">
-                
-                {/* COLUMN 1: INTELLECT */}
-                <div className="space-y-10">
-                  <Section title="Personality Matrix" icon={Brain}>
-                    <div className="flex flex-col gap-4">
-                      {moods.map((mood) => {
-                        const isActive = settings.personality === mood.id;
-                        return (
-                          <button
-                            key={mood.id}
-                            onClick={() => update("personality", mood.id)}
-                            className={`p-5 rounded-2xl border transition-all duration-500 text-left ${
-                              isActive ? 'border-cyan-400 bg-cyan-400/10 shadow-[0_0_20px_rgba(34,211,238,0.1)]' : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05]'
-                            }`}
-                          >
-                            <div className="flex items-center gap-4">
-                              <mood.icon size={20} className={isActive ? 'text-cyan-400' : 'text-slate-500'} />
-                              <div>
-                                <h4 className={`text-xs font-bold uppercase tracking-widest ${isActive ? 'text-white' : 'text-slate-400'}`}>{mood.name}</h4>
-                                <p className="text-[10px] text-slate-600 mt-1 uppercase">{mood.desc}</p>
-                              </div>
-                            </div>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </Section>
-
-                  <Section title="Cognitive Parameters" icon={Gauge}>
-                    <div className="space-y-6">
-                      <Dropdown label="Context Depth" value={settings.contextDepth} options={["Low", "Medium", "High"]} onSelect={(v) => update("contextDepth", v)} />
-                      <Dropdown label="Temperature" value={settings.temperature} options={["Logical", "Balanced", "Creative"]} onSelect={(v) => update("temperature", v)} />
-                    </div>
-                  </Section>
+        {/* Settings Body - Scrollable only if needed */}
+        <div className="relative z-10 flex-1 overflow-y-auto no-scrollbar px-8 py-8">
+          <div className="grid grid-cols-1 gap-10 xl:grid-cols-12">
+            
+            {/* LEFT COLUMN: AI Personality */}
+            <div className="xl:col-span-4 space-y-10">
+              <Section title="Personality Matrix" icon={Brain}>
+                <div className="space-y-3">
+                  <PersonalityCard
+                    active={settings.personality === "nilima"}
+                    onClick={() => update("personality", "nilima")}
+                    icon={Star}
+                    title="Nilima Core"
+                    desc="Emotional & Intuitive"
+                    color="text-pink-400"
+                  />
+                  <PersonalityCard
+                    active={settings.personality === "developer"}
+                    onClick={() => update("personality", "developer")}
+                    icon={Code}
+                    title="Dev Mode"
+                    desc="Logic & Technical"
+                    color="text-cyan-400"
+                  />
+                  <PersonalityCard
+                    active={settings.personality === "formal"}
+                    onClick={() => update("personality", "formal")}
+                    icon={Briefcase}
+                    title="Corporate"
+                    desc="Polished & Precise"
+                    color="text-blue-400"
+                  />
                 </div>
+              </Section>
 
-                {/* COLUMN 2: INTERFACE & LANGUAGE */}
-                <div className="space-y-10">
-                  <Section title="Linguistic Core" icon={Globe}>
-                    <div className="grid grid-cols-3 gap-3">
-                      {["English", "Bengali", "Bilingual"].map((lang) => (
-                        <button
-                          key={lang}
-                          onClick={() => update("language", lang)}
-                          className={`py-4 text-[9px] font-black uppercase border rounded-xl transition-all ${
-                            settings.language === lang ? "bg-cyan-400 text-black border-cyan-400" : "bg-white/[0.02] border-white/5 text-slate-500 hover:text-slate-300"
-                          }`}
-                        >
-                          {lang}
-                        </button>
-                      ))}
-                    </div>
-                    <Toggle icon={Sparkles} label="Auto-Translate" desc="Real-time response translation" value={settings.autoTranslate} onChange={(v) => update("autoTranslate", v)} />
-                  </Section>
-
-                  <Section title="Neural Interface" icon={Activity}>
-                    <div className="space-y-4">
-                      <Toggle icon={Volume2} label="Audio Synthesis" desc="AI Vocalization engine" value={settings.voice} onChange={(v) => update("voice", v)} />
-                      <Toggle icon={Mic} label="Active Listening" desc="Hands-free voice trigger" value={settings.autoListen} onChange={(v) => update("autoListen", v)} />
-                    </div>
-                  </Section>
+              <Section title="Cognitive Parameters" icon={Gauge}>
+                <div className="space-y-4">
+                  <Dropdown
+                    label="Context Depth"
+                    value={settings.contextDepth}
+                    options={["Standard", "Balanced", "High"]}
+                    onSelect={(v) => update("contextDepth", v)}
+                  />
+                  <Dropdown
+                    label="Temperature"
+                    value={settings.temperature}
+                    options={["Logical", "Balanced", "Creative"]}
+                    onSelect={(v) => update("temperature", v)}
+                  />
                 </div>
+              </Section>
+            </div>
 
-                {/* COLUMN 3: SYSTEM & ENGINE */}
-                <div className="space-y-10">
-                  <Section title="Global Logic" icon={Zap}>
-                    <div className="p-6 bg-white/[0.02] border border-white/5 rounded-3xl space-y-6">
-                      <div className="flex justify-between items-center text-[10px] font-mono text-slate-500 uppercase">
-                        <span>Concise</span>
-                        <span className="text-cyan-400">{settings.verbosity}% Elaborate</span>
-                        <span>Detailed</span>
-                      </div>
-                      <input 
-                        type="range" min="0" max="100" value={settings.verbosity} 
-                        onChange={(e) => update("verbosity", e.target.value)}
-                        className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-cyan-400"
-                      />
-                    </div>
-                    <Toggle icon={Moon} label="Stealth Mode" desc="OLED Optimized interface" value={settings.darkMode} onChange={(v) => update("darkMode", v)} />
-                  </Section>
-
-                  <Section title="Memory & Storage" icon={Database}>
-                    <div className="space-y-4">
-                      <div className="p-5 border border-cyan-400/20 bg-cyan-400/5 rounded-2xl flex items-center justify-between">
-                         <div className="flex items-center gap-3">
-                            <Cpu size={18} className="text-cyan-400" />
-                            <span className="text-[10px] font-black uppercase text-slate-300">Engine: {settings.provider}</span>
-                         </div>
-                         <div className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
-                      </div>
-                      <button
-                        onClick={onClearChat}
-                        className="w-full group flex items-center justify-between p-5 bg-red-500/5 border border-red-500/10 hover:border-red-500/40 rounded-2xl transition-all"
-                      >
-                        <div className="flex items-center gap-4">
-                          <Trash2 size={18} className="text-red-500" />
-                          <span className="text-[10px] font-bold uppercase text-red-500 tracking-wider">Purge Chat History</span>
-                        </div>
-                        <ChevronRight size={16} className="text-red-900" />
-                      </button>
-                    </div>
-                  </Section>
+            {/* MIDDLE COLUMN: Interface Controls */}
+            <div className="xl:col-span-4 space-y-10 xl:border-x xl:border-white/5 xl:px-8">
+              <Section title="Neural Interface" icon={Activity}>
+                <div className="space-y-3">
+                  <Toggle
+                    icon={Volume2}
+                    label="Audio Synthesis"
+                    desc="AI Vocal Engine"
+                    value={settings.voice}
+                    onChange={(v) => update("voice", v)}
+                    color="cyan"
+                  />
+                  <Toggle
+                    icon={Mic}
+                    label="Active Listening"
+                    desc="Wake Trigger"
+                    value={settings.autoListen}
+                    onChange={(v) => update("autoListen", v)}
+                    color="purple"
+                  />
+                  <Toggle
+                    icon={Sparkles}
+                    label="Auto Translate"
+                    desc="Realtime Engine"
+                    value={settings.autoTranslate}
+                    onChange={(v) => update("autoTranslate", v)}
+                    color="emerald"
+                  />
                 </div>
+              </Section>
 
-              </div>
-
-              {/* 🛰️ FOOTER STATUS BAR */}
-              <div className="mt-auto pt-8 border-t border-white/[0.05] flex items-center justify-between opacity-40">
-                <div className="flex gap-8 text-[9px] font-mono uppercase tracking-[0.2em] text-slate-500">
-                  <span>Hardware ID: SADIK_ENG_2026</span>
-                  <span>Latency: 12ms</span>
+              <Section title="Linguistic Hub" icon={Globe}>
+                <div className="flex rounded-2xl border border-white/5 bg-white/[0.02] p-1.5">
+                  {["English", "Bengali", "Bilingual"].map((lang) => (
+                    <button
+                      key={lang}
+                      onClick={() => update("language", lang)}
+                      className={`flex-1 rounded-xl py-3 text-[10px] font-black uppercase transition-all ${
+                        settings.language === lang
+                          ? "bg-cyan-500 text-black shadow-lg shadow-cyan-500/20"
+                          : "text-slate-500 hover:text-slate-300"
+                      }`}
+                    >
+                      {lang}
+                    </button>
+                  ))}
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-1 w-12 bg-cyan-500/20 rounded-full overflow-hidden">
-                    <motion.div animate={{ x: [-48, 48] }} transition={{ repeat: Infinity, duration: 2 }} className="h-full w-6 bg-cyan-400" />
+              </Section>
+            </div>
+
+            {/* RIGHT COLUMN: Performance & Security */}
+            <div className="xl:col-span-4 space-y-10">
+              <Section title="Output Tuning" icon={Sliders}>
+                <div className="rounded-[26px] border border-white/5 bg-white/[0.02] p-6 space-y-5">
+                  <div className="flex items-center justify-between text-[10px] font-mono uppercase">
+                    <span className="text-slate-600">Concise</span>
+                    <span className="font-black text-cyan-400">{settings.verbosity}% Elaborate</span>
+                    <span className="text-slate-600">Deep</span>
                   </div>
-                  <span className="text-[9px] font-mono uppercase text-cyan-400">System Stable</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={settings.verbosity}
+                    onChange={(e) => update("verbosity", e.target.value)}
+                    className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                  />
                 </div>
-              </div>
+              </Section>
+
+              <Section title="Security & Data" icon={Shield}>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-white/[0.03] p-5">
+                    <div className="flex items-center gap-4">
+                      <div className="rounded-xl bg-emerald-500/10 p-2.5 text-emerald-400">
+                        <Database size={18} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase text-slate-200">Provider Status</p>
+                        <p className="text-[9px] font-mono uppercase text-slate-600">
+                          {settings.provider} // Active
+                        </p>
+                      </div>
+                    </div>
+                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  </div>
+
+                  <button
+                    onClick={onClearChat}
+                    className="flex w-full items-center justify-between rounded-2xl border border-red-500/10 bg-red-500/[0.03] p-6 transition-all hover:bg-red-500/[0.06] hover:border-red-500/30 group"
+                  >
+                    <span className="text-[10px] font-black uppercase tracking-[0.18em] text-red-400 group-hover:text-red-500">
+                      Purge Neural Memory
+                    </span>
+                    <ChevronRight size={14} className="text-red-900 group-hover:text-red-500 transition-colors" />
+                  </button>
+                </div>
+              </Section>
             </div>
           </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+        </div>
+
+        {/* Footer */}
+        <footer className="relative z-10 flex shrink-0 items-center justify-between border-t border-white/5 bg-white/[0.02] px-8 py-5 opacity-60">
+          <div className="flex gap-8 text-[9px] font-mono uppercase tracking-[0.2em] text-slate-500">
+            <span>Node ID: {navigator.platform}</span>
+            <span>Status: Operational</span>
+          </div>
+          <div className="flex items-center gap-2.5 text-cyan-500">
+            <Command size={14} />
+            <span className="text-[9px] font-black uppercase tracking-widest">
+              Lì Ào Protocol Synchronized
+            </span>
+          </div>
+        </footer>
+      </motion.div>
+    </div>
   );
 }
 
-// --- Specialized UI Components ---
+// --- Helper Components ---
+
 function Section({ title, icon: Icon, children }) {
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Icon size={18} className="text-cyan-400 opacity-60" />
-        <h3 className="text-[11px] font-black uppercase tracking-[0.4em] text-slate-500">{title}</h3>
-        <div className="h-px flex-1 bg-gradient-to-r from-white/5 to-transparent" />
+    <div className="space-y-5">
+      <div className="flex items-center gap-3 ml-1">
+        <Icon size={16} className="text-cyan-400" />
+        <h3 className="text-[11px] font-black uppercase tracking-[0.26em] text-slate-500">
+          {title}
+        </h3>
       </div>
-      <div className="space-y-4">{children}</div>
+      {children}
     </div>
   );
 }
 
-function Toggle({ icon: Icon, label, desc, value, onChange }) {
+function PersonalityCard({ active, onClick, icon: Icon, title, desc, color }) {
   return (
-    <div onClick={() => onChange(!value)} className="group flex items-center justify-between p-4 bg-white/[0.01] border border-white/[0.05] hover:border-cyan-400/30 rounded-2xl transition-all cursor-pointer">
+    <button
+      onClick={onClick}
+      className={`relative flex w-full items-center gap-5 overflow-hidden rounded-[26px] border p-5 text-left transition-all ${
+        active
+          ? "border-cyan-500/30 bg-white/[0.06] shadow-xl shadow-black/20"
+          : "border-white/5 bg-transparent hover:border-white/10 hover:bg-white/[0.02]"
+      }`}
+    >
+      <div className={`rounded-2xl p-3.5 transition-colors ${active ? `bg-white/10 ${color}` : "bg-white/5 text-slate-700"}`}>
+        <Icon size={20} />
+      </div>
+      <div className="flex-1">
+        <p className={`text-[11px] font-black uppercase tracking-wider ${active ? "text-white" : "text-slate-500"}`}>
+          {title}
+        </p>
+        <p className="mt-1 text-[9px] uppercase text-slate-600 font-medium">
+          {desc}
+        </p>
+      </div>
+      {active && <div className="absolute right-0 top-1/4 h-1/2 w-1 rounded-l-full bg-cyan-500" />}
+    </button>
+  );
+}
+
+function Toggle({ icon: Icon, label, desc, value, onChange, color }) {
+  const colorMap = {
+    cyan: "text-cyan-400 bg-cyan-400/10",
+    purple: "text-purple-400 bg-purple-400/10",
+    emerald: "text-emerald-400 bg-emerald-400/10",
+  };
+
+  return (
+    <button
+      onClick={() => onChange(!value)}
+      className="flex w-full items-center justify-between rounded-[22px] border border-white/5 bg-white/[0.02] p-5 transition-all hover:border-white/10"
+    >
       <div className="flex items-center gap-4">
-        <div className={`p-3 rounded-xl transition-all ${value ? 'bg-cyan-400 text-black shadow-[0_0_15px_rgba(34,211,238,0.4)]' : 'bg-white/5 text-slate-600'}`}>
+        <div className={`rounded-xl p-3 transition-all ${value ? colorMap[color] : "bg-white/5 text-slate-800"}`}>
           <Icon size={18} />
         </div>
-        <div>
-          <p className="text-[10px] font-bold text-slate-200 uppercase tracking-wide">{label}</p>
-          <p className="text-[8px] text-slate-600 mt-1 uppercase">{desc}</p>
+        <div className="text-left">
+          <p className="text-[10px] font-bold uppercase tracking-tight text-slate-200">{label}</p>
+          <p className="text-[8px] uppercase text-slate-600 mt-0.5">{desc}</p>
         </div>
       </div>
-      <div className={`w-10 h-4 rounded-full relative transition-colors ${value ? 'bg-cyan-400/40' : 'bg-slate-800'}`}>
-        <motion.div animate={{ x: value ? 24 : 4 }} className="absolute top-1 h-2 w-2 rounded-full bg-white shadow-[0_0_8px_white]" />
+      <div className={`relative h-5 w-11 rounded-full transition-colors ${value ? "bg-cyan-500" : "bg-white/10"}`}>
+        <motion.div
+          animate={{ x: value ? 24 : 4 }}
+          transition={{ type: "spring", stiffness: 300, damping: 20 }}
+          className="absolute top-1 h-3 w-3 rounded-full bg-white shadow-sm"
+        />
       </div>
-    </div>
+    </button>
   );
 }
 
 function Dropdown({ label, value, options, onSelect }) {
   return (
-    <div className="space-y-2">
-      <label className="text-[9px] font-bold text-slate-600 uppercase tracking-widest ml-1">{label}</label>
+    <div className="space-y-2.5">
+      <label className="ml-2 text-[9px] font-black uppercase tracking-[0.2em] text-slate-600">
+        {label}
+      </label>
       <div className="relative group">
-        <select 
-          value={value} onChange={(e) => onSelect(e.target.value)}
-          className="w-full bg-white/[0.02] border border-white/5 text-slate-300 text-[10px] font-bold uppercase p-4 rounded-2xl appearance-none outline-none focus:border-cyan-400/50 transition-all cursor-pointer"
+        <select
+          value={value}
+          onChange={(e) => onSelect(e.target.value)}
+          className="w-full appearance-none rounded-2xl border border-white/5 bg-white/[0.03] p-4.5 pl-5 text-[10px] font-black uppercase text-slate-300 outline-none focus:border-cyan-500/40 transition-all cursor-pointer"
         >
-          {options.map(opt => <option key={opt} value={opt} className="bg-[#050914]">{opt}</option>)}
+          {options.map((opt) => (
+            <option key={opt} value={opt} className="bg-[#0b0f1a] text-white">{opt}</option>
+          ))}
         </select>
-        <ChevronRight size={14} className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-slate-600 pointer-events-none" />
+        <ChevronRight size={14} className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 rotate-90 text-slate-600 group-hover:text-cyan-500 transition-colors" />
       </div>
     </div>
   );

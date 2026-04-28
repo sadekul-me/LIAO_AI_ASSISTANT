@@ -1,92 +1,89 @@
 import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
+// Layout Components
 import Sidebar from "./Sidebar";
 import RightPanel from "./RightPanel";
 
+// Page / Feature Components
 import Dashboard from "../../pages/Dashboard";
 import ChatPanel from "../chat/ChatPanel";
 import SettingsPanel from "../settings/SettingsPanel";
 import AutomationEngine from "../settings/AutomationEngine";
+import CodeAssistant from "../chat/CodeAssistant";
+import SystemControl from "../dashboard/SystemControl";
+import FileSearch from "../dashboard/FileSearch";
+import ToolBox from "../dashboard/ToolBox";
+import VoiceAvatar from "../voice/VoiceAvatar";
 
 const PAGE_MAP = {
   dashboard: Dashboard,
   chat: ChatPanel,
-  // সেটিংসকে আমরা ম্যাপে রাখব না কারণ এটা ওভারলে হিসেবে কাজ করে
-  automation: AutomationEngine 
+  voice: VoiceAvatar, // ✅ Added
+  code: CodeAssistant,
+  system: SystemControl,
+  files: FileSearch,
+  automation: AutomationEngine,
+  tools: ToolBox,
+  settings: SettingsPanel,
 };
 
 const MainLayout = () => {
-  // শুরুতে ড্যাশবোর্ড অ্যাক্টিভ থাকবে
   const [activePage, setActivePage] = useState("dashboard");
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const ActiveComponent = useMemo(() => {
-    // যদি সেটিংস ওপেন না থাকে এবং পেজ ম্যাপে থাকে তবেই কম্পোনেন্ট রিটার্ন করবে
     return PAGE_MAP[activePage] || Dashboard;
   }, [activePage]);
 
-  // 🔥 নেভিগেশন হ্যান্ডলার: সেটিংস এবং অটোমেশন লজিক আলাদা করা হয়েছে
   const handleNavClick = (page) => {
-    if (page === "settings") {
-      setIsSettingsOpen(true);
-      setActivePage("settings"); 
-    } else {
-      // অন্য কোনো পেজে (যেমন: Automation) ক্লিক করলে সেটিংস প্যানেল বন্ধ হয়ে যাবে
-      setIsSettingsOpen(false); 
-      setActivePage(page);
-    }
+    setActivePage(page);
   };
 
   return (
-    <div className="relative flex h-screen w-full bg-[#02040A] text-white overflow-hidden font-sans">
+    <div className="relative flex h-screen w-screen overflow-hidden bg-[#02040A] text-white font-sans selection:bg-cyan-500/30">
       
-      {/* 🌌 Background Engine */}
-      <div className="absolute inset-0 pointer-events-none">
+      {/* 🌌 Background */}
+      <div className="absolute inset-0 z-0 pointer-events-none select-none overflow-hidden">
         <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-[0.015]" />
-        {/* Lì Ào Protocol Ambient Glow */}
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-cyan-500/5 blur-[120px] rounded-full opacity-20" />
+        <div className="absolute top-0 right-0 h-[600px] w-[600px] rounded-full bg-cyan-500/5 blur-[120px] animate-pulse" />
+        <div className="absolute bottom-0 left-0 h-[400px] w-[400px] rounded-full bg-blue-500/5 blur-[120px]" />
       </div>
 
-      {/* 🔹 Sidebar - High Priority Z-Index */}
-      <div className="z-[60] relative">
+      {/* 🛰 Sidebar */}
+      <aside className="relative z-50 h-full shrink-0 border-r border-white/[0.04] bg-[#02040A]/40 backdrop-blur-3xl">
         <Sidebar active={activePage} setActive={handleNavClick} />
-      </div>
+      </aside>
 
-      {/* 🔹 Center Content Area */}
-      <main className="relative flex-1 flex flex-col min-w-0 z-10 overflow-hidden border-x border-white/[0.03]">
-
+      {/* 🖥 Main Content */}
+      <main className="relative z-10 flex h-full min-w-0 flex-1 flex-col overflow-hidden">
         <AnimatePresence mode="wait">
-          {/* যদি সেটিংস ওভারলে ওপেন না থাকে, তবেই পেজ ট্রানজিশন হবে */}
-          {!isSettingsOpen && (
-            <motion.div
-              key={activePage}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.3, ease: "circOut" }}
-              className="h-full w-full"
-            >
-              <ActiveComponent />
-            </motion.div>
-          )}
+          <motion.div
+            key={activePage}
+            initial={{ opacity: 0, x: 20, scale: 0.985 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: -20, scale: 0.985 }}
+            transition={{
+              duration: 0.28,
+              ease: [0.22, 1, 0.36, 1],
+            }}
+            className="h-full w-full flex-1 overflow-hidden"
+          >
+            <div className="h-full w-full overflow-hidden">
+              <ActiveComponent
+                onClearChat={() => console.log("Memory Purged")}
+              />
+            </div>
+          </motion.div>
         </AnimatePresence>
-
-        {/* ⚙️ Settings Overlay - এটা মেইন কন্টেন্টের উপরে ভেসে থাকবে */}
-        <SettingsPanel 
-          isOpen={isSettingsOpen} 
-          onClearChat={() => console.log("Lì Ào Protocol: Chat History Purged")}
-        />
-
       </main>
 
-      {/* 🔹 Right Panel - System Metrics & Activity */}
-      <aside className="hidden lg:block w-[300px] xl:w-[320px] h-full z-10">
+      {/* 📊 Right Panel */}
+      <aside className="relative z-40 hidden h-full w-[340px] shrink-0 overflow-hidden border-l border-white/[0.04] bg-[#02040A]/20 backdrop-blur-3xl xl:flex">
         <RightPanel activePage={activePage} />
       </aside>
 
-      {/* Global Interface Border */}
-      <div className="fixed inset-0 border border-white/[0.02] pointer-events-none z-50" />
+      {/* 🛡 Global Frame */}
+      <div className="pointer-events-none fixed inset-0 z-[1000] rounded-sm border border-white/[0.02]" />
     </div>
   );
 };
