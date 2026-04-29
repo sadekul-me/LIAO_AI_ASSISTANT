@@ -1,170 +1,288 @@
 import os
+import re
 import time
+import uuid
 import asyncio
-import tempfile
 import threading
+from pathlib import Path
+from typing import Optional, Dict, Any
+
 import edge_tts
 import pygame
 
 
 class TextToSpeechService:
     """
-    LIAO AI Assistant Text To Speech Service
-    Fixed & production stable version
+    🔥 LIAO AI Assistant - ULTRA PRO TTS v2
+
+    Features
+    -----------------------------------
+    ✅ FastAPI Safe
+    ✅ No asyncio.run conflict
+    ✅ Auto Bangla / English voice detect
+    ✅ Stable Windows support
+    ✅ Static file output support
+    ✅ Temp file support
+    ✅ Clean playback system
+    ✅ Production ready
     """
 
+    # ==========================================
+    # INIT
+    # ==========================================
     def __init__(self):
-        self.default_voice = "bn-BD-NabanitaNeural"
+
+        # Voice Profiles
+        self.bn_voice = "bn-BD-NabanitaNeural"
+        self.bn_male = "bn-BD-PradeepNeural"
+
+        self.en_voice = "en-US-AriaNeural"
+        self.en_male = "en-US-GuyNeural"
+
+        # Default style
         self.default_rate = "+0%"
         self.default_volume = "+0%"
+        self.default_pitch = "+0Hz"
 
+        # File system
+        self.static_dir = Path("static")
+        self.static_dir.mkdir(parents=True, exist_ok=True)
+
+        # Audio lock
         self._play_lock = threading.Lock()
-        self._init_audio_engine()
 
-    def _init_audio_engine(self):
+        # Init pygame mixer
+        self._init_audio()
+
+    # ==========================================
+    # AUDIO ENGINE
+    # ==========================================
+    def _init_audio(self):
         try:
-            pygame.mixer.init()
+            if not pygame.mixer.get_init():
+                pygame.mixer.init()
         except Exception as e:
-            print("TTS Init Warning:", e)
+            print("🔇 Audio Init Warning:", e)
 
-    # --------------------------------------------------
-    # CORE AUDIO GENERATION
-    # --------------------------------------------------
-    async def _generate_audio(
+    # ==========================================
+    # LANGUAGE DETECT
+    # ==========================================
+    def _contains_bangla(self, text: str) -> bool:
+        return bool(re.search(r'[\u0980-\u09FF]', text))
+
+    def _select_voice(self, text: str, voice: Optional[str]) -> str:
+
+        if voice:
+            return voice
+
+        if self._contains_bangla(text):
+            return self.bn_voice
+
+        return self.en_voice
+
+    # ==========================================
+    # GENERATE AUDIO
+    # ==========================================
+    async def _generate(
         self,
         text: str,
-        output_file: str,
-        voice: str = None,
-        rate: str = None,
-        volume: str = None
+        output_path: str,
+        voice: str,
+        rate: str,
+        volume: str,
+        pitch: str
     ):
+
         communicate = edge_tts.Communicate(
             text=text,
-            voice=voice or self.default_voice,
-            rate=rate or self.default_rate,
-            volume=volume or self.default_volume
+            voice=voice,
+            rate=rate,
+            volume=volume,
+            pitch=pitch
         )
 
-        await communicate.save(output_file)
+        await communicate.save(output_path)
 
-    # --------------------------------------------------
-    # MAIN SPEAK FUNCTION
-    # --------------------------------------------------
+    # ==========================================
+    # SAFE ASYNC RUNNER
+    # ==========================================
+    def _run_async_safe(self, coro):
+
+        try:
+            loop = asyncio.get_event_loop()
+
+            if loop.is_running():
+
+                result = {}
+
+                def runner():
+                    new_loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(new_loop)
+
+                    try:
+                        new_loop.run_until_complete(coro)
+                    finally:
+                        new_loop.close()
+
+                t = threading.Thread(target=runner)
+                t.start()
+                t.join()
+
+            else:
+                loop.run_until_complete(coro)
+
+        except RuntimeError:
+            new_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(new_loop)
+
+            try:
+                new_loop.run_until_complete(coro)
+            finally:
+                new_loop.close()
+
+    # ==========================================
+    # MAIN SPEAK
+    # ==========================================
     def speak(
         self,
         text: str,
-        voice: str = None,
-        rate: str = None,
-        volume: str = None
-    ) -> str:
-        """
-        Returns audio file path (API friendly)
-        """
+        output_path: Optional[str] = None,
+        voice: Optional[str] = None,
+        rate: Optional[str] = None,
+        volume: Optional[str] = None,
+        pitch: Optional[str] = None
+    ) -> Dict[str, Any]:
 
         if not text or not text.strip():
-            return ""
+            return {
+                "success": False,
+                "audio_path": None,
+                "error": "Empty text"
+            }
 
-        temp_path = None
+        text = text.strip()
 
         try:
-            temp_file = tempfile.NamedTemporaryFile(
-                delete=False,
-                suffix=".mp3"
-            )
+            # Voice select
+            selected_voice = self._select_voice(text, voice)
 
-            temp_path = temp_file.name
-            temp_file.close()
+            # Output path
+            if not output_path:
+                file_name = f"liao_{uuid.uuid4().hex[:8]}.mp3"
+                output_path = str(self.static_dir / file_name)
 
-            asyncio.run(
-                self._generate_audio(
+            # Generate
+            self._run_async_safe(
+                self._generate(
                     text=text,
-                    output_file=temp_path,
-                    voice=voice,
-                    rate=rate,
-                    volume=volume
+                    output_path=output_path,
+                    voice=selected_voice,
+                    rate=rate or self.default_rate,
+                    volume=volume or self.default_volume,
+                    pitch=pitch or self.default_pitch
                 )
             )
 
-            self._play_audio(temp_path)
-
-            return temp_path
+            return {
+                "success": True,
+                "audio_path": output_path,
+                "voice": selected_voice,
+                "error": None
+            }
 
         except Exception as e:
-            print("TTS ERROR:", e)
+            print("🔥 TTS ERROR:", e)
 
-            if temp_path and os.path.exists(temp_path):
-                os.remove(temp_path)
+            return {
+                "success": False,
+                "audio_path": None,
+                "error": str(e)
+            }
 
-            return ""
+    # ==========================================
+    # PLAY AUDIO
+    # ==========================================
+    def play(self, file_path: str) -> bool:
 
-    # --------------------------------------------------
-    # ASYNC SPEAK (NON-BLOCKING)
-    # --------------------------------------------------
-    def speak_async(self, text: str, voice: str = None):
-        thread = threading.Thread(
-            target=self.speak,
-            args=(text, voice),
-            daemon=True
-        )
-        thread.start()
-
-    # --------------------------------------------------
-    # SAVE FILE ONLY
-    # --------------------------------------------------
-    def save_to_file(self, text: str, file_path: str, voice: str = None) -> bool:
-        try:
-            asyncio.run(
-                self._generate_audio(
-                    text=text,
-                    output_file=file_path,
-                    voice=voice
-                )
-            )
-            return True
-        except Exception as e:
-            print("TTS SAVE ERROR:", e)
-            return False
-
-    # --------------------------------------------------
-    # AUDIO PLAYBACK
-    # --------------------------------------------------
-    def _play_audio(self, file_path: str):
         try:
             with self._play_lock:
+
                 if not pygame.mixer.get_init():
                     pygame.mixer.init()
 
-                pygame.mixer.music.stop()
+                pygame.mixer.music.load(file_path)
+                pygame.mixer.music.play()
+
+            return True
+
+        except Exception as e:
+            print("🔊 Play Error:", e)
+            return False
+
+    # ==========================================
+    # PLAY + WAIT
+    # ==========================================
+    def play_and_wait(self, file_path: str):
+
+        try:
+            with self._play_lock:
+
+                if not pygame.mixer.get_init():
+                    pygame.mixer.init()
+
                 pygame.mixer.music.load(file_path)
                 pygame.mixer.music.play()
 
                 while pygame.mixer.music.get_busy():
                     time.sleep(0.1)
 
-        except Exception as e:
-            print("PLAY ERROR:", e)
+                try:
+                    pygame.mixer.music.unload()
+                except:
+                    pass
 
-    # --------------------------------------------------
-    # STOP AUDIO
-    # --------------------------------------------------
+        except Exception as e:
+            print("🔊 Play Wait Error:", e)
+
+    # ==========================================
+    # STOP
+    # ==========================================
     def stop(self):
+
         try:
             pygame.mixer.music.stop()
-        except Exception:
+        except:
             pass
 
-    # --------------------------------------------------
-    # VOICE CONTROL
-    # --------------------------------------------------
-    def set_voice(self, voice_name: str):
-        self.default_voice = voice_name
-
-    # --------------------------------------------------
-    # SAFE CLEANUP
-    # --------------------------------------------------
+    # ==========================================
+    # CLEANUP
+    # ==========================================
     def cleanup(self, file_path: str):
+
         try:
             if file_path and os.path.exists(file_path):
                 os.remove(file_path)
-        except Exception:
-            pass
+        except Exception as e:
+            print("🧹 Cleanup Error:", e)
+
+    # ==========================================
+    # QUICK TEST
+    # ==========================================
+    def test(self):
+
+        result = self.speak("হ্যালো সাদিক, আমি লিয়াও এআই এসিস্ট্যান্ট।")
+
+        if result["success"]:
+            print("✅ Generated:", result["audio_path"])
+            self.play_and_wait(result["audio_path"])
+        else:
+            print("❌ Failed:", result["error"])
+
+
+# ==========================================
+# MAIN TEST
+# ==========================================
+if __name__ == "__main__":
+
+    tts = TextToSpeechService()
+    tts.test()

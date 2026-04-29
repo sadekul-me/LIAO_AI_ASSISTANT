@@ -1,9 +1,10 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles # <--- অডিও ফাইল সার্ভ করার জন্য
 
 from backend.api.chat_api import router as chat_router
 from backend.api.voice_api import router as voice_router
-
 
 # ==================================================
 # APP INIT
@@ -14,13 +15,25 @@ app = FastAPI(
     description="Local AI Assistant Backend System (Jarvis Core)"
 )
 
+# ==================================================
+# STATIC FILES CONFIG (খুবই গুরুত্বপূর্ণ)
+# ==================================================
+# নিশ্চিত করো তোমার প্রজেক্টের রুট ডিরেক্টরিতে 'static' ফোল্ডার আছে। 
+# TTS এর অডিও ফাইলগুলো এখানে থাকলে ব্রাউজার থেকে শোনা যাবে।
+STATIC_DIR = "static"
+if not os.path.exists(STATIC_DIR):
+    os.makedirs(STATIC_DIR)
+
+# ব্রাউজার এখন http://127.0.0.1:8000/static/filename.mp3 দিলে ফাইল পাবে
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
 
 # ==================================================
 # CORS CONFIG
 # ==================================================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # production এ restrict করা লাগবে
+    allow_origins=["*"],  # Production এ এটাকে রিডু করা লাগবে
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -81,6 +94,7 @@ def startup_event():
     print("🧠 Jarvis Core: ACTIVE")
     print("📡 Server: http://127.0.0.1:8000")
     print("📘 Docs: http://127.0.0.1:8000/docs")
+    print("📂 Static Path: http://127.0.0.1:8000/static")
     print("=" * 55 + "\n")
 
 

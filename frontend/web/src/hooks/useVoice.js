@@ -1,293 +1,118 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-
-/* ==================================================
-   useVoice Hook
-   Speech Recognition + Speech Synthesis
-   Clean / Browser Ready / Scalable
-================================================== */
+import axios from "axios";
 
 export default function useVoice() {
-  /* =========================================
-     STATE
-  ========================================= */
-  const [isSupported, setIsSupported] =
-    useState(false);
-
-  const [isListening, setIsListening] =
-    useState(false);
-
-  const [transcript, setTranscript] =
-    useState("");
-
-  const [interimTranscript, setInterimTranscript] =
-    useState("");
-
-  const [error, setError] =
-    useState(null);
-
-  const [voiceEnabled, setVoiceEnabled] =
-    useState(true);
-
-  const [language, setLanguage] =
-    useState("en-US");
-
-  const [voices, setVoices] =
-    useState([]);
-
-  const [selectedVoice, setSelectedVoice] =
-    useState(null);
+  const [isSupported, setIsSupported] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [transcript, setTranscript] = useState("");
+  const [interimTranscript, setInterimTranscript] = useState("");
+  const [error, setError] = useState(null);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [language, setLanguage] = useState("bn-BD"); // Default to Bengali for Liao
 
   const recognitionRef = useRef(null);
+  const audioRef = useRef(new Audio());
 
   /* =========================================
-     INIT
+      INIT SPEECH RECOGNITION (STT)
   ========================================= */
   useEffect(() => {
-    const SpeechRecognition =
-      window.SpeechRecognition ||
-      window.webkitSpeechRecognition;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setIsSupported(false);
+      return;
+    }
 
-    const speechSupported =
-      !!SpeechRecognition &&
-      !!window.speechSynthesis;
-
-    setIsSupported(speechSupported);
-
-    if (!speechSupported) return;
-
-    const recognition =
-      new SpeechRecognition();
-
-    recognition.continuous = true;
+    setIsSupported(true);
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false; // Set to false for better command control
     recognition.interimResults = true;
     recognition.lang = language;
 
-    recognition.onstart = () => {
-      setIsListening(true);
-      setError(null);
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => setIsListening(false);
     recognition.onerror = (event) => {
-      setError(
-        event?.error ||
-          "Voice error"
-      );
-
+      setError(event?.error || "Voice error");
       setIsListening(false);
     };
 
     recognition.onresult = (event) => {
       let finalText = "";
       let interim = "";
-
-      for (
-        let i = event.resultIndex;
-        i < event.results.length;
-        i++
-      ) {
-        const result =
-          event.results[i];
-
-        const text =
-          result[0].transcript;
-
-        if (result.isFinal) {
-          finalText += text + " ";
-        } else {
-          interim += text;
-        }
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const text = event.results[i][0].transcript;
+        if (event.results[i].isFinal) finalText += text;
+        else interim += text;
       }
-
-      if (finalText) {
-        setTranscript(
-          (prev) =>
-            prev + finalText
-        );
-      }
-
-      setInterimTranscript(
-        interim
-      );
+      setTranscript(finalText);
+      setInterimTranscript(interim);
     };
 
-    recognitionRef.current =
-      recognition;
-
-    loadVoices();
-
-    window.speechSynthesis.onvoiceschanged =
-      loadVoices;
-
-    return () => {
-      recognition.stop();
-    };
+    recognitionRef.current = recognition;
   }, [language]);
 
   /* =========================================
-     LOAD VOICES
+      BACKEND SPEAK (TTS) - The Jarvis Voice
   ========================================= */
-  const loadVoices =
-    useCallback(() => {
-      const list =
-        window.speechSynthesis.getVoices();
+  const speak = useCallback(async (text) => {
+    if (!voiceEnabled || !text?.trim()) return;
 
-      setVoices(list);
+    try {
+      // 1. Backend API Call (TTS)
+      const response = await axios.post("http://127.0.0.1:8000/voice/tts", {
+        text: text,
+      });
 
-      if (
-        list.length > 0 &&
-        !selectedVoice
-      ) {
-        setSelectedVoice(
-          list[0]
-        );
+      if (response.data.success) {
+        // 2. Get Audio URL (Assuming you serve static files or have a full path)
+        // Note: Backend output_path logic should be accessible via browser
+        const audioUrl = `http://127.0.0.1:8000/static/${response.data.audio_path.split('\\').pop()}`;
+        
+        audioRef.current.src = audioUrl;
+        audioRef.current.play();
       }
-    }, [selectedVoice]);
+    } catch (err) {
+      console.error("TTS Error:", err);
+      // Fallback to Browser Speech if Backend fails
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = language;
+      window.speechSynthesis.speak(utterance);
+    }
+  }, [voiceEnabled, language]);
+
+  const stopSpeaking = useCallback(() => {
+    audioRef.current.pause();
+    window.speechSynthesis?.cancel();
+  }, []);
 
   /* =========================================
-     LISTENING CONTROL
+      CONTROLS
   ========================================= */
-  const startListening =
-    useCallback(() => {
-      if (
-        !isSupported ||
-        !recognitionRef.current
-      )
-        return;
+  const startListening = useCallback(() => {
+    if (!isSupported) return;
+    setTranscript("");
+    setError(null);
+    try { recognitionRef.current.start(); } catch {}
+  }, [isSupported]);
 
-      setTranscript("");
-      setInterimTranscript("");
-      setError(null);
+  const stopListening = useCallback(() => recognitionRef.current?.stop(), []);
 
-      try {
-        recognitionRef.current.lang =
-          language;
+  const toggleListening = useCallback(() => {
+    isListening ? stopListening() : startListening();
+  }, [isListening, startListening, stopListening]);
 
-        recognitionRef.current.start();
-      } catch {}
-    }, [isSupported, language]);
-
-  const stopListening =
-    useCallback(() => {
-      recognitionRef.current?.stop();
-    }, []);
-
-  const toggleListening =
-    useCallback(() => {
-      if (isListening) {
-        stopListening();
-      } else {
-        startListening();
-      }
-    }, [
-      isListening,
-      startListening,
-      stopListening,
-    ]);
-
-  /* =========================================
-     SPEAK
-  ========================================= */
-  const speak =
-    useCallback(
-      (text) => {
-        if (
-          !voiceEnabled ||
-          !text?.trim()
-        )
-          return;
-
-        if (
-          !window.speechSynthesis
-        )
-          return;
-
-        window.speechSynthesis.cancel();
-
-        const utterance =
-          new SpeechSynthesisUtterance(
-            text
-          );
-
-        utterance.lang =
-          language;
-
-        if (selectedVoice) {
-          utterance.voice =
-            selectedVoice;
-        }
-
-        utterance.rate = 1;
-        utterance.pitch = 1;
-        utterance.volume = 1;
-
-        window.speechSynthesis.speak(
-          utterance
-        );
-      },
-      [
-        voiceEnabled,
-        language,
-        selectedVoice,
-      ]
-    );
-
-  const stopSpeaking =
-    useCallback(() => {
-      window.speechSynthesis?.cancel();
-    }, []);
-
-  /* =========================================
-     TEXT CONTROL
-  ========================================= */
-  const clearTranscript =
-    useCallback(() => {
-      setTranscript("");
-      setInterimTranscript("");
-    }, []);
-
-  /* =========================================
-     SETTINGS
-  ========================================= */
-  const toggleVoice =
-    useCallback(() => {
-      setVoiceEnabled(
-        (prev) => !prev
-      );
-    }, []);
-
-  /* =========================================
-     EXPORT
-  ========================================= */
   return {
     isSupported,
     isListening,
-
     transcript,
     interimTranscript,
-
     error,
-
     voiceEnabled,
-    language,
-
-    voices,
-    selectedVoice,
-
     startListening,
     stopListening,
     toggleListening,
-
     speak,
     stopSpeaking,
-
-    clearTranscript,
-
-    toggleVoice,
     setLanguage,
-    setSelectedVoice,
   };
 }

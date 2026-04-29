@@ -6,13 +6,12 @@ import {
 } from "../services/api";
 
 /* ==================================================
-   useAI Hook
-   Clean / Scalable / Production Ready
+   useAI Hook - Optimized for Real-time Voice & Chat
 ================================================== */
 
 export default function useAI() {
   /* =========================================
-     STATE
+      STATE
   ========================================= */
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -25,12 +24,13 @@ export default function useAI() {
 
   const sendingRef = useRef(false);
   const mountedRef = useRef(true);
+  const audioRef = useRef(null); // আগের অডিও থামানোর জন্য
 
   const STORAGE_KEY = "liao_chat_history";
   const HEALTH_INTERVAL = 15000;
 
   /* =========================================
-     HELPERS
+      HELPERS
   ========================================= */
   const getTime = () =>
     new Date().toLocaleTimeString([], {
@@ -50,28 +50,20 @@ export default function useAI() {
   };
 
   /* =========================================
-     WELCOME
+      WELCOME / STORAGE
   ========================================= */
   const loadWelcome = useCallback(() => {
-    setMessages([
-      createMessage("Hello! I'm LIAO Assistant.", false),
-    ]);
+    setMessages([createMessage("Hello! I'm LIAO Assistant.", false)]);
   }, []);
 
-  /* =========================================
-     LOAD CHAT
-  ========================================= */
   const loadStoredMessages = useCallback(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-
       if (!raw) {
         loadWelcome();
         return;
       }
-
       const parsed = JSON.parse(raw);
-
       if (Array.isArray(parsed) && parsed.length > 0) {
         setMessages(parsed);
       } else {
@@ -82,30 +74,21 @@ export default function useAI() {
     }
   }, [loadWelcome]);
 
-  /* =========================================
-     SAVE CHAT
-  ========================================= */
   const persistMessages = useCallback((data) => {
     try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify(data)
-      );
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch (err) {
       console.warn("Storage error:", err);
     }
   }, []);
 
   /* =========================================
-     BACKEND HEALTH
+      BACKEND HEALTH
   ========================================= */
   const checkBackendHealth = useCallback(async () => {
     try {
       await getSystemStatus();
-
-      safeSetState(() => {
-        setIsOnline(true);
-      });
+      safeSetState(() => setIsOnline(true));
     } catch {
       safeSetState(() => {
         setIsOnline(false);
@@ -115,92 +98,82 @@ export default function useAI() {
   }, []);
 
   /* =========================================
-     INIT
+      INIT & AUTO SAVE
   ========================================= */
   useEffect(() => {
     mountedRef.current = true;
-
     loadStoredMessages();
     checkBackendHealth();
 
-    const interval = setInterval(() => {
-      checkBackendHealth();
-    }, HEALTH_INTERVAL);
-
+    const interval = setInterval(checkBackendHealth, HEALTH_INTERVAL);
     return () => {
       mountedRef.current = false;
       clearInterval(interval);
+      if (audioRef.current) audioRef.current.pause(); // ক্লিনআপ
     };
   }, [loadStoredMessages, checkBackendHealth]);
 
-  /* =========================================
-     AUTO SAVE
-  ========================================= */
   useEffect(() => {
-    if (messages.length > 0) {
-      persistMessages(messages);
-    }
+    if (messages.length > 0) persistMessages(messages);
   }, [messages, persistMessages]);
 
   /* =========================================
-     FALLBACK RESPONSE
+      FALLBACK
   ========================================= */
   const fallback = useCallback((text) => {
     const t = text.toLowerCase();
-
-    if (t.includes("hello") || t.includes("hi"))
-      return "Hello.";
-
-    if (t.includes("name"))
-      return "I am LIAO Assistant.";
-
-    if (t.includes("code"))
-      return "Ready for development tasks.";
-
-    if (t.includes("help"))
-      return "Tell me what you need.";
-
-    if (t.includes("time"))
-      return `Current time is ${getTime()}.`;
-
-    return "Offline mode active.";
+    if (t.includes("hello") || t.includes("hi")) return "Hello.";
+    if (t.includes("name")) return "I am LIAO Assistant.";
+    if (t.includes("code")) return "Ready for development tasks.";
+    if (t.includes("help")) return "Tell me what you need.";
+    if (t.includes("time")) return `Current time is ${getTime()}.`;
+    return "I'm currently in offline mode, but I can still help with basic tasks.";
   }, []);
 
   /* =========================================
-     TTS
+      TTS (AUDIO PLAYBACK FIX)
   ========================================= */
   const speakText = useCallback(
     async (text) => {
       if (!text || !isOnline) return;
 
       try {
-        await getTTS(text);
+        const res = await getTTS(text);
+        
+        // যদি ব্যাকএন্ড থেকে সাকসেস মেসেজ এবং ফাইলের নাম আসে
+        if (res && res.success && res.audio_path) {
+          // আগের কোনো অডিও বাজতে থাকলে সেটা থামিয়ে দাও
+          if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current = null;
+          }
+
+          const audioUrl = `http://127.0.0.1:8000/static/${res.audio_path}`;
+          const audio = new Audio(audioUrl);
+          audioRef.current = audio;
+          
+          await audio.play();
+        }
       } catch (err) {
-        console.warn("TTS error:", err);
+        console.error("TTS Playback Error:", err);
       }
     },
     [isOnline]
   );
 
   /* =========================================
-     SEND MESSAGE
+      SEND MESSAGE
   ========================================= */
   const sendMessage = useCallback(
     async (text) => {
       const cleanText = String(text || "").trim();
-
-      if (!cleanText) return;
-      if (sendingRef.current) return;
+      if (!cleanText || sendingRef.current) return;
 
       sendingRef.current = true;
       setError(null);
       setIsLoading(true);
 
-      const userMessage = createMessage(
-        cleanText,
-        true
-      );
-
+      const userMessage = createMessage(cleanText, true);
       setMessages((prev) => [...prev, userMessage]);
 
       try {
@@ -209,23 +182,11 @@ export default function useAI() {
 
         if (isOnline) {
           try {
-            const res = await apiSendMessage(
-              cleanText
-            );
-
-            reply =
-              res?.reply ||
-              res?.message ||
-              "";
-
-            currentProvider =
-              res?.provider ||
-              "online";
+            const res = await apiSendMessage(cleanText);
+            reply = res?.reply || res?.message || "";
+            currentProvider = res?.provider || "online";
           } catch (err) {
-            console.warn(
-              "API error:",
-              err
-            );
+            console.warn("API error, falling back to local...");
           }
         }
 
@@ -234,40 +195,23 @@ export default function useAI() {
           currentProvider = "offline";
         }
 
-        const botMessage = createMessage(
-          reply,
-          false
-        );
+        const botMessage = createMessage(reply, false);
 
         safeSetState(() => {
-          setMessages((prev) => [
-            ...prev,
-            botMessage,
-          ]);
-
+          setMessages((prev) => [...prev, botMessage]);
           setProvider(currentProvider);
         });
 
+        // রিপ্লাই আসার সাথে সাথে লিয়াও কথা বলবে
         speakText(reply);
+
       } catch (err) {
         safeSetState(() => {
-          setError(
-            "Unable to process request."
-          );
-
-          setMessages((prev) => [
-            ...prev,
-            createMessage(
-              "Something went wrong.",
-              false
-            ),
-          ]);
+          setError("Connection lost.");
+          setMessages((prev) => [...prev, createMessage("Something went wrong.", false)]);
         });
       } finally {
-        safeSetState(() => {
-          setIsLoading(false);
-        });
-
+        safeSetState(() => setIsLoading(false));
         sendingRef.current = false;
       }
     },
@@ -275,63 +219,42 @@ export default function useAI() {
   );
 
   /* =========================================
-     CHAT CONTROL
+      CHAT CONTROL
   ========================================= */
   const clearChat = useCallback(() => {
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch {}
-
-    setMessages([
-      createMessage(
-        "Conversation cleared.",
-        false
-      ),
-    ]);
+    setMessages([createMessage("Conversation cleared.", false)]);
   }, []);
 
   const removeMessage = useCallback((id) => {
-    setMessages((prev) =>
-      prev.filter((item) => item.id !== id)
-    );
+    setMessages((prev) => prev.filter((item) => item.id !== id));
   }, []);
 
   /* =========================================
-     VOICE
+      VOICE STATES
   ========================================= */
-  const startListening = useCallback(() => {
-    setIsListening(true);
-  }, []);
-
-  const stopListening = useCallback(() => {
-    setIsListening(false);
-  }, []);
-
-  const toggleListening = useCallback(() => {
-    setIsListening((prev) => !prev);
-  }, []);
+  const startListening = useCallback(() => setIsListening(true), []);
+  const stopListening = useCallback(() => setIsListening(false), []);
+  const toggleListening = useCallback(() => setIsListening((prev) => !prev), []);
 
   /* =========================================
-     EXPORT
+      EXPORT
   ========================================= */
   return {
     messages,
-
     sendMessage,
     clearChat,
     removeMessage,
-
     isLoading,
     error,
-
     isListening,
     startListening,
     stopListening,
     toggleListening,
-
     isOnline,
     provider,
-
     speakText,
     checkBackendHealth,
   };

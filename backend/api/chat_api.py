@@ -1,17 +1,33 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
+from typing import Optional, Dict, Any
+from datetime import datetime
+import time
+import traceback
 
 from backend.core.ai_engine import AIEngine
 
 # ==================================================
-# ROUTER INIT
+# 🚀 LIAO CHAT API ULTRA PRO v3
+# Fast / Clean / Production Ready
 # ==================================================
+
 router = APIRouter(
     prefix="/chat",
     tags=["Chat"]
 )
 
+# ==================================================
+# GLOBAL AI ENGINE (Single Instance = Faster)
+# ==================================================
 ai_engine = AIEngine()
+
+# ==================================================
+# SIMPLE MEMORY CACHE
+# ==================================================
+server_started = datetime.now()
+total_requests = 0
+total_errors = 0
 
 
 # ==================================================
@@ -26,17 +42,35 @@ class ChatResponse(BaseModel):
     success: bool
     reply: str
     provider: str
+    latency: float
+    timestamp: str
 
 
 # ==================================================
-# HEALTH CHECK
+# UTILITIES
 # ==================================================
-@router.get("/")
+def now():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def clean_text(text: str) -> str:
+    return text.strip().replace("\n", " ").replace("\r", "")
+
+
+# ==================================================
+# STATUS
+# ==================================================
+@router.get("")
 def chat_status():
     return {
         "service": "chat",
         "status": "online",
-        "ai_ready": True
+        "ai_ready": True,
+        "provider": getattr(ai_engine, "last_provider", "offline"),
+        "uptime": str(datetime.now() - server_started).split(".")[0],
+        "requests": total_requests,
+        "errors": total_errors,
+        "time": now()
     }
 
 
@@ -44,28 +78,46 @@ def chat_status():
 def ping():
     return {
         "success": True,
-        "message": "Chat API running properly"
+        "message": "LIAO Chat API Online",
+        "time": now()
+    }
+
+
+@router.get("/stats")
+def stats():
+    return {
+        "uptime": str(datetime.now() - server_started).split(".")[0],
+        "requests": total_requests,
+        "errors": total_errors,
+        "provider": getattr(ai_engine, "last_provider", "offline"),
+        "latency": getattr(ai_engine, "last_latency", 0)
     }
 
 
 # ==================================================
-# MAIN CHAT ENDPOINT (FIXED)
+# MAIN CHAT API
 # ==================================================
-@router.post("/", response_model=ChatResponse)
+@router.post("", response_model=ChatResponse)
 def chat(request: ChatRequest):
+
+    global total_requests, total_errors
+    total_requests += 1
+
+    start = time.time()
+
     try:
-        user_message = request.message.strip()
+        user_message = clean_text(request.message)
 
         if not user_message:
             raise HTTPException(
                 status_code=400,
-                detail="Empty message is not allowed"
+                detail="Message cannot be empty"
             )
 
-        print("\n" + "=" * 50)
-        print("USER:", user_message)
+        print("\n" + "=" * 60)
+        print(f"USER ({request.session_id}): {user_message}")
 
-        # 🔥 FIX: ONLY session_id pass করো (context না)
+        # Generate AI Reply
         reply = ai_engine.generate_response(
             user_input=user_message,
             session_id=request.session_id
@@ -74,39 +126,50 @@ def chat(request: ChatRequest):
         provider = getattr(ai_engine, "last_provider", "offline")
 
         if not reply:
-            reply = "আমি এখন এই প্রশ্নের উত্তর দিতে পারছি না।"
+            reply = "I am unable to respond right now."
 
-        print("REPLY:", reply)
-        print("PROVIDER:", provider)
-        print("=" * 50 + "\n")
+        latency = round(time.time() - start, 3)
+
+        print(f"REPLY: {reply}")
+        print(f"PROVIDER: {provider}")
+        print(f"LATENCY: {latency}s")
+        print("=" * 60 + "\n")
 
         return ChatResponse(
             success=True,
             reply=reply,
-            provider=provider
+            provider=provider,
+            latency=latency,
+            timestamp=now()
         )
 
     except HTTPException as e:
-        print("HTTP ERROR:", e.detail)
+        total_errors += 1
         raise e
 
     except Exception as e:
+        total_errors += 1
+
         print("SYSTEM ERROR:", str(e))
+        traceback.print_exc()
 
         return ChatResponse(
             success=False,
-            reply="Server error হয়েছে, পরে চেষ্টা করুন।",
-            provider="error"
+            reply="Internal server error.",
+            provider="error",
+            latency=0,
+            timestamp=now()
         )
 
 
 # ==================================================
-# INTENT DETECTION (FIXED SAFE VERSION)
+# INTENT DETECTION
 # ==================================================
 @router.post("/intent")
 def detect_intent(request: ChatRequest):
+
     try:
-        text = request.message.strip()
+        text = clean_text(request.message)
 
         if not text:
             raise HTTPException(
@@ -114,39 +177,68 @@ def detect_intent(request: ChatRequest):
                 detail="Empty message"
             )
 
-        print("\n" + "=" * 50)
-        print("INTENT INPUT:", text)
-
-        # 🔥 SAFE fallback (AIEngine এ detect_intent না থাকলে crash হবে না)
         if hasattr(ai_engine, "detect_intent"):
             result = ai_engine.detect_intent(text)
         else:
             result = {
                 "intent": "chat",
                 "target": "",
-                "action": "",
-                "message": "intent engine not found"
+                "action": ""
             }
-
-        print("INTENT OUTPUT:", result)
-        print("=" * 50 + "\n")
 
         return {
             "success": True,
-            "data": result
+            "data": result,
+            "time": now()
         }
 
-    except HTTPException as e:
-        print("INTENT HTTP ERROR:", e.detail)
-        raise e
-
     except Exception as e:
-        print("INTENT ERROR:", str(e))
-
         return {
             "success": False,
             "data": {
                 "intent": "chat",
-                "message": "Intent error"
-            }
+                "target": "",
+                "action": ""
+            },
+            "error": str(e)
         }
+
+
+# ==================================================
+# QUICK TEST
+# ==================================================
+@router.get("/test/{msg}")
+def quick_test(msg: str):
+
+    try:
+        reply = ai_engine.generate_response(msg)
+
+        return {
+            "success": True,
+            "message": msg,
+            "reply": reply,
+            "provider": getattr(ai_engine, "last_provider", "offline")
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+# ==================================================
+# RESET STATS
+# ==================================================
+@router.post("/reset")
+def reset_stats():
+
+    global total_requests, total_errors
+
+    total_requests = 0
+    total_errors = 0
+
+    return {
+        "success": True,
+        "message": "Stats reset complete."
+    }

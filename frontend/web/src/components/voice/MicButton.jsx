@@ -1,25 +1,53 @@
+import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mic, MicOff } from "lucide-react";
+import useVoice from "../../hooks/useVoice"; // hook import kora holo
 
-const MicButton = ({ active = false, onToggle }) => {
+const MicButton = ({ onMessageSent }) => {
+  // Hook theke shob logic neya holo
+  const { 
+    isListening, 
+    toggleListening, 
+    transcript, 
+    isSupported, 
+    error 
+  } = useVoice();
+
+  // Jokhon user kotha bola shesh korbe (isListening false hobe), tokhon transcript-ta pathabo
+  useEffect(() => {
+    if (!isListening && transcript.trim()) {
+      handleVoiceSubmission(transcript);
+    }
+  }, [isListening, transcript]);
+
+  const handleVoiceSubmission = (text) => {
+    if (onMessageSent) {
+      onMessageSent(text); // Chat panel-e message-ta pathiye dibe
+    }
+    console.log("Liao heard:", text);
+  };
+
+  if (!isSupported) return null;
+
   return (
     <motion.button
-      onClick={onToggle}
+      onClick={toggleListening}
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.92 }}
       className="relative flex items-center justify-center w-12 h-12 rounded-full z-20 group"
+      title={error ? `Error: ${error}` : "Talk to Liao"}
     >
-      {/* 🔮 Ultra Glow Layer: অ্যাক্টিভ মোডে লাল এবং অফ মোডে সায়ান গ্লো */}
+      {/* 🔮 Ultra Glow Layer */}
       <AnimatePresence>
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ 
             opacity: 1,
-            scale: active ? [1, 1.2, 1] : 1 
+            scale: isListening ? [1, 1.2, 1] : 1 
           }}
           transition={{ duration: 2, repeat: Infinity }}
           className={`absolute inset-0 rounded-full blur-xl ${
-            active ? "bg-red-500/40" : "bg-cyan-500/20"
+            isListening ? "bg-red-500/40" : "bg-cyan-500/20"
           }`}
         />
       </AnimatePresence>
@@ -27,8 +55,8 @@ const MicButton = ({ active = false, onToggle }) => {
       {/* 🌀 Dynamic Background Gradient */}
       <motion.div
         animate={{
-          rotate: active ? 180 : 0,
-          background: active 
+          rotate: isListening ? 180 : 0,
+          background: isListening 
             ? "linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)" 
             : "linear-gradient(135deg, #22d3ee 0%, #3b82f6 50%, #9333ea 100%)",
         }}
@@ -40,17 +68,17 @@ const MicButton = ({ active = false, onToggle }) => {
 
       {/* 🎙️ Icon with Morphing Effect */}
       <motion.div
-        key={active ? "active" : "inactive"}
+        key={isListening ? "active" : "inactive"}
         initial={{ scale: 0, rotate: -90 }}
         animate={{ scale: 1, rotate: 0 }}
         transition={{ type: "spring", stiffness: 300, damping: 20 }}
         className="relative z-20 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]"
       >
-        {active ? <MicOff size={20} /> : <Mic size={20} />}
+        {isListening ? <MicOff size={20} /> : <Mic size={20} />}
       </motion.div>
 
-      {/* 🌊 Active Ripple Effect: শুধুমাত্র যখন কথা বলবে */}
-      {active && (
+      {/* 🌊 Active Ripple Effect */}
+      {isListening && (
         <div className="absolute inset-0 z-0">
           {[1, 2].map((i) => (
             <motion.div
@@ -69,8 +97,8 @@ const MicButton = ({ active = false, onToggle }) => {
         </div>
       )}
 
-      {/* ✨ Orbiting Particle (Pro Detail) */}
-      {!active && (
+      {/* ✨ Orbiting Particle */}
+      {!isListening && (
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
