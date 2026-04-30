@@ -5,15 +5,13 @@ import {
   Phone,
   Video,
   ShieldCheck,
-  Zap,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
 import Avatar from "../ai/Avatar";
-import Tooltip from "../ui/Tooltip";
 
 const ChatHeader = ({
-  name = "Nilima",
+  name = "LIAO Assistant",
   status = "Online",
   role = "ai",
   avatar = "",
@@ -31,13 +29,12 @@ const ChatHeader = ({
       className="
         relative flex items-center justify-between
         px-4 sm:px-6 py-3
-        bg-[#080E1C]/80 backdrop-blur-2xl
+        bg-[#050914]/70 backdrop-blur-2xl
         border-b border-white/[0.06]
       "
     >
-
-      {/* LEFT SIDE */}
-      <div className="flex items-center gap-4 min-w-0">
+      {/* ================= LEFT ================= */}
+      <div className="flex items-center gap-3 min-w-0">
 
         {/* Avatar */}
         <div className="relative">
@@ -53,7 +50,7 @@ const ChatHeader = ({
           />
         </div>
 
-        {/* INFO */}
+        {/* Name + Status */}
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <h2 className="text-white text-sm sm:text-base font-semibold truncate">
@@ -65,7 +62,6 @@ const ChatHeader = ({
             )}
           </div>
 
-          {/* STATUS */}
           <div className="flex items-center gap-2 mt-1">
             <span
               className={`w-2 h-2 rounded-full ${
@@ -81,65 +77,65 @@ const ChatHeader = ({
         </div>
       </div>
 
-      {/* RIGHT SIDE */}
+      {/* ================= RIGHT ================= */}
       <div className="flex items-center gap-2">
 
-        {/* SECURITY BADGE */}
-        <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10">
-          <Zap size={12} className="text-cyan-400" />
-          <span className="text-[10px] text-slate-400 uppercase tracking-wider">
-            Secure AI
-          </span>
-        </div>
-
-        {/* ACTIONS */}
-        <div className="flex items-center gap-1 p-1 rounded-xl bg-white/5 border border-white/10">
+        {/* CALL / VIDEO GROUP (NO BORDER BOX → CLEAN PREMIUM) */}
+        <div className="flex items-center gap-1">
 
           {/* CALL */}
-          <Tooltip text="Voice Call">
-            <button
-              onClick={onCall}
-              className="
-                w-9 h-9 flex items-center justify-center
-                rounded-lg hover:bg-white/10
-                transition active:scale-95
-              "
-            >
-              <Phone size={16} className="text-slate-300" />
-            </button>
-          </Tooltip>
+          <button
+            onClick={onCall}
+            className="
+              w-9 h-9 flex items-center justify-center
+              rounded-lg
+              hover:bg-white/10
+              transition active:scale-95
+              group
+            "
+          >
+            <Phone
+              size={16}
+              className="text-slate-300 group-hover:text-cyan-300 transition"
+            />
+          </button>
 
           {/* VIDEO */}
-          <Tooltip text="Video Call">
-            <button
-              onClick={onVideo}
-              className="
-                w-9 h-9 flex items-center justify-center
-                rounded-lg hover:bg-white/10
-                transition active:scale-95
-              "
-            >
-              <Video size={16} className="text-slate-300" />
-            </button>
-          </Tooltip>
+          <button
+            onClick={onVideo}
+            className="
+              w-9 h-9 flex items-center justify-center
+              rounded-lg
+              hover:bg-white/10
+              transition active:scale-95
+              group
+            "
+          >
+            <Video
+              size={16}
+              className="text-slate-300 group-hover:text-cyan-300 transition"
+            />
+          </button>
 
           {/* MENU */}
-          <Tooltip text="More Options">
-            <button
-              onClick={onMenu}
-              className="
-                w-9 h-9 flex items-center justify-center
-                rounded-lg hover:bg-white/10
-                transition active:scale-95
-              "
-            >
-              <MoreVertical size={16} className="text-slate-300" />
-            </button>
-          </Tooltip>
-
+          <button
+            onClick={onMenu}
+            className="
+              w-9 h-9 flex items-center justify-center
+              rounded-lg
+              hover:bg-white/10
+              transition active:scale-95
+              group
+            "
+          >
+            <MoreVertical
+              size={16}
+              className="text-slate-300 group-hover:text-white transition"
+            />
+          </button>
         </div>
 
-        {/* AI ACTION BUTTON */}
+        {/* AI BUTTON (MAIN FOCUS GLOW) */}
         <button
           onClick={onAIAction}
           className="
@@ -147,15 +143,13 @@ const ChatHeader = ({
             bg-gradient-to-br from-cyan-500 via-blue-500 to-purple-600
             flex items-center justify-center
             shadow-[0_0_25px_rgba(34,211,238,0.25)]
-            hover:scale-105 transition
-            active:scale-95
+            hover:scale-105 transition active:scale-95
           "
         >
           <Sparkles size={16} className="text-white" />
         </button>
 
       </div>
-
     </motion.header>
   );
 };

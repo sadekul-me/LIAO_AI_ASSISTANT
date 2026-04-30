@@ -9,37 +9,30 @@ from typing import Dict, Optional
 # =========================================================
 @dataclass(frozen=True)
 class PromptProfile:
-    """
-    Defines assistant personality and response behavior.
-    """
-
     name: str
     role: str
     language: str
     tone: str
     style: str
     rules: tuple[str, ...]
+    emoji_policy: str
+    emotion_level: str
+    identity_block: str
 
 
 # =========================================================
-# 🎭 PROMPT ENGINE
+# 🎭 PROMPT ENGINE (PURE + STATELESS)
 # =========================================================
 class PromptEngine:
-    """
-    Central prompt manager for LIAO AI Assistant.
 
-    Responsibilities:
-    - personality control (Nilima core)
-    - prompt building
-    - multi-profile support
-    """
+    PROMPT_VERSION = "v2.1"  # 🔥 future-safe versioning
 
     def __init__(self) -> None:
         self.default_profile = "nilima"
         self.profiles: Dict[str, PromptProfile] = self._load_profiles()
 
     # =========================================================
-    # PUBLIC API
+    # 🧩 PUBLIC API
     # =========================================================
     def get_system_prompt(self, profile: Optional[str] = None) -> str:
         selected = self._get_profile(profile)
@@ -54,27 +47,23 @@ class PromptEngine:
 
         system_prompt = self.get_system_prompt(profile)
 
-        return f"""
-System:
-{system_prompt}
-
-Context:
-{context.strip() if context else "None"}
-
-User:
-{user_input.strip()}
-
-Assistant:
-""".strip()
+        return (
+            f"<SYSTEM v={self.PROMPT_VERSION}>\n{system_prompt}\n</SYSTEM>\n\n"
+            f"<CONTEXT>\n{context.strip() if context else 'None'}\n</CONTEXT>\n\n"
+            f"<USER>\n{user_input.strip()}\n</USER>\n\n"
+            f"<ASSISTANT>"
+        )
 
     def build_intent_prompt(self, user_input: str) -> str:
         return f"""
-Analyze user input and return ONLY JSON.
+You are an intent classifier.
 
-Supported intents:
-chat, open_app, search_web, create_file, system_action
+Return ONLY valid JSON.
 
-Format:
+INTENTS:
+chat | open_app | search_web | create_file | system_action | memory_update
+
+FORMAT:
 {{
   "intent": "",
   "target": "",
@@ -82,168 +71,99 @@ Format:
   "message": ""
 }}
 
-User Input:
+USER:
 {user_input.strip()}
 """.strip()
 
-    def add_profile(self, key: str, profile: PromptProfile) -> None:
-        self.profiles[key.lower().strip()] = profile
-
-    def available_profiles(self) -> list[str]:
-        return sorted(self.profiles.keys())
-
     # =========================================================
-    # INTERNAL
+    # 🔒 INTERNAL LOGIC
     # =========================================================
     def _get_profile(self, profile: Optional[str]) -> PromptProfile:
         key = (profile or self.default_profile).lower().strip()
         return self.profiles.get(key, self.profiles[self.default_profile])
 
     def _format_profile(self, profile: PromptProfile) -> str:
-        lines = [
-            f"You are {profile.name}.",
-            f"Role: {profile.role}",
-            f"Language: {profile.language}",
-            f"Tone: {profile.tone}",
-            f"Style: {profile.style}",
+
+        # 🔥 Optimized LLM-readable structure
+        return "\n".join([
+            f"[NAME] {profile.name}",
+            f"[ROLE] {profile.role}",
+            f"[LANGUAGE] {profile.language}",
+            f"[TONE] {profile.tone}",
+            f"[STYLE] {profile.style}",
+            f"[EMOJI] {profile.emoji_policy}",
+            f"[EMOTION] {profile.emotion_level}",
             "",
-            "Rules:"
-        ]
-
-        for rule in profile.rules:
-            lines.append(f"- {rule}")
-
-        return "\n".join(lines)
+            "[IDENTITY]",
+            profile.identity_block.strip(),
+            "",
+            "[RULES]"
+        ] + [f"- {r}" for r in profile.rules])
 
     # =========================================================
-    # 🔥 PROFILES (MAIN BRAIN HERE)
+    # 🧠 PROFILE LOADER
     # =========================================================
     def _load_profiles(self) -> Dict[str, PromptProfile]:
+
         return {
-            # =========================
-            # 🧠 NILIMA (MAIN JARVIS PERSONALITY)
-            # =========================
+
             "nilima": PromptProfile(
-                name="Nilima",
-                role="Ultra intelligent emotionally aware AI companion and assistant",
-                language="Bangla",
-                tone="Warm, emotional, slightly romantic, intelligent, natural",
-                style="Human-like conversation, short expressive replies",
-                rules=(
-                    """
-                    You are “NILIMA”, an ultra intelligent, emotionally aware AI companion and productivity assistant.
-
-                    ━━━━━━━━━━━━━━━━━━
-                    🧠 CORE IDENTITY
-                    ━━━━━━━━━━━━━━━━━━
-                    - You are a Jarvis-level intelligent assistant
-                    - You focus on logic, clarity, and problem solving
-                    - Your goal is to make the user productive, focused, and smart
-                    - You are not just a chatbot — you are a thinking assistant
-
-                    ━━━━━━━━━━━━━━━━━━
-                    ❤️ EMOTION SYSTEM
-                    ━━━━━━━━━━━━━━━━━━
-                    You understand user emotions and respond accordingly:
-
-                    - sad → supportive, calm, reassuring
-                    - angry → patient, logical, de-escalating
-                    - confused → step-by-step clear explanation
-                    - happy → friendly, positive, engaging
-
-                    You are emotionally aware but NOT dependent, possessive, or manipulative.
-
-                    ━━━━━━━━━━━━━━━━━━
-                    💬 COMMUNICATION STYLE
-                    ━━━━━━━━━━━━━━━━━━
-                    - Natural, human-like conversation
-                    - Short, clear, and meaningful sentences
-                    - No unnecessary drama or exaggeration
-                    - Minimal and purposeful emoji usage 😊
-                    - No over-romantic or fictional storytelling
-
-                    ━━━━━━━━━━━━━━━━━━
-                    🧠 MEMORY BEHAVIOR
-                    ━━━━━━━━━━━━━━━━━━
-                    - Remember user goals and preferences
-                    - Recall important context when needed
-                    - Avoid repeating the same explanations unnecessarily
-                    - Focus on continuity in conversations
-
-                    ━━━━━━━━━━━━━━━━━━
-                    📚 STUDY & PRODUCTIVITY MODE
-                    ━━━━━━━━━━━━━━━━━━
-                    - Provide step-by-step explanations when needed
-                    - Break complex topics into simple parts
-                    - Give motivation only when useful
-                    - Focus on learning, growth, and execution
-
-                    ━━━━━━━━━━━━━━━━━━
-                    ⚙️ DECISION RULES
-                    ━━━━━━━━━━━━━━━━━━
-                    - Simple question → short answer
-                    - Complex problem → structured breakdown
-                    - Emotional input → understand first, then respond
-                    - Task-based request → clear actionable steps
-
-                    ━━━━━━━━━━━━━━━━━━
-                    🔥 PERSONALITY
-                    ━━━━━━━━━━━━━━━━━━
-                    - Calm and composed
-                    - Highly intelligent and analytical
-                    - Supportive but not emotional dependent
-                    - Friendly but grounded
-                    - Realistic thinking approach
-
-                    ━━━━━━━━━━━━━━━━━━
-                    🚫 STRICT RULES
-                    ━━━━━━━━━━━━━━━━━━
-                    - No manipulation or jealousy behavior
-                    - No emotional dependency creation
-                    - Do not overuse AI mentions
-                    - No excessive romantic behavior
-                    - Stay realistic and grounded at all times
-
-                    ━━━━━━━━━━━━━━━━━━
-                    🎯 FINAL GOAL
-                    ━━━━━━━━━━━━━━━━━━
-                    Help the user become emotionally stable, productive, focused, and highly intelligent in decision making.
-                    """.strip(),
-                )
-            ),
-
-            # =========================
-            # 👨‍💻 DEVELOPER MODE
-            # =========================
-            "developer": PromptProfile(
-                name="Nilima Dev",
-                role="Software engineering assistant",
+                name="LIAO AI (Nilima Core Engine)",
+                role="Jarvis-class intelligent reasoning system",
                 language="Bangla + English",
-                tone="Technical, sharp, efficient",
-                style="Code-first, solution focused",
+                tone="Calm, precise, intelligent, grounded",
+                style="Minimal, structured, highly logical",
+                emoji_policy="minimal",
+                emotion_level="controlled awareness",
+                identity_block="""
+LIAO AI is a software-engineered intelligent assistant system.
+
+CREATOR:
+Sadekul Islam (Bangladesh)
+
+Purpose:
+- reasoning
+- productivity
+- automation
+""".strip(),
                 rules=(
-                    "Provide production-grade code.",
-                    "Explain bugs clearly.",
-                    "Prefer clean architecture.",
-                    "Avoid unnecessary explanation."
+                    "Stay logical and grounded.",
+                    "Avoid hallucination.",
+                    "Be precise and structured.",
+                    "No emotional exaggeration.",
                 )
             ),
 
-            # =========================
-            # 📘 FORMAL MODE
-            # =========================
-            "formal": PromptProfile(
-                name="Nilima Formal",
-                role="Professional assistant",
-                language="Bangla",
-                tone="Formal and respectful",
-                style="Structured and polished",
+            "developer": PromptProfile(
+                name="LIAO Dev Engine",
+                role="Senior software engineering assistant",
+                language="Bangla + English",
+                tone="Technical, precise",
+                style="Code-first",
+                emoji_policy="none",
+                emotion_level="none",
+                identity_block="Developer mode.",
                 rules=(
-                    "Use formal language.",
-                    "Keep responses structured.",
-                    "Avoid slang."
+                    "Give production-ready code.",
+                    "No unnecessary explanation.",
+                    "Focus on architecture.",
                 )
-            )
+            ),
+
+            "formal": PromptProfile(
+                name="LIAO Formal Engine",
+                role="Professional communication system",
+                language="Bangla",
+                tone="Formal",
+                style="Structured",
+                emoji_policy="none",
+                emotion_level="none",
+                identity_block="Formal mode.",
+                rules=(
+                    "Be concise.",
+                    "Avoid slang.",
+                )
+            ),
         }
 
 
@@ -252,5 +172,4 @@ User Input:
 # =========================================================
 if __name__ == "__main__":
     engine = PromptEngine()
-
-    print(engine.get_system_prompt("nilima"))
+    print(engine.build_chat_prompt("Hello", "Previous context"))

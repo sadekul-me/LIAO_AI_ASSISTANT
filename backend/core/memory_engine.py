@@ -1,38 +1,53 @@
+from __future__ import annotations
+
 import sqlite3
 from pathlib import Path
 from datetime import datetime
-from threading import Lock
+from threading import RLock
+from typing import List, Dict, Optional
 
 
 class MemoryEngine:
     """
-    LIAO AI Assistant Memory Engine
+    LIAO AI Memory Engine (Production Grade)
 
-    Responsibilities:
-    - persistent memory storage
-    - recent conversation history
-    - user preferences
-    - safe SQLite operations
+    Features:
+    - Persistent storage (SQLite, WAL mode)
+    - Thread-safe (RLock)
+    - Conversation history
+    - Key-value memory system
+    - Optimized read/write
+    - Future-proof hooks
     """
 
-    def __init__(self, db_path="data/memory.db"):
+    def __init__(self, db_path: str = "data/memory.db"):
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
-        self.lock = Lock()
+        self.lock = RLock()
+        self.connection = self._connect()
 
-        self.connection = sqlite3.connect(
+        self._setup()
+
+    # =========================================================
+    # 🔌 CONNECTION
+    # =========================================================
+    def _connect(self):
+        conn = sqlite3.connect(
             self.db_path,
             check_same_thread=False,
-            timeout=10
+            timeout=30,
         )
+        conn.row_factory = sqlite3.Row
 
-        self.connection.row_factory = sqlite3.Row
+        # 🔥 Performance boost
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
 
-        self._create_tables()
+        return conn
 
-    def _create_tables(self):
-        query_list = [
+    def _setup(self):
+        queries = [
             """
             CREATE TABLE IF NOT EXISTS memories (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -40,7 +55,8 @@ class MemoryEngine:
                 key_name TEXT NOT NULL,
                 value TEXT NOT NULL,
                 created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                updated_at TEXT NOT NULL,
+                UNIQUE(category, key_name)
             )
             """,
             """
@@ -51,172 +67,107 @@ class MemoryEngine:
                 created_at TEXT NOT NULL
             )
             """,
-            """
-            CREATE INDEX IF NOT EXISTS idx_memory_key
-            ON memories (category, key_name)
-            """
+            "CREATE INDEX IF NOT EXISTS idx_mem_cat_key ON memories(category, key_name)",
+            "CREATE INDEX IF NOT EXISTS idx_conv_time ON conversations(created_at)"
         ]
 
-        try:
-            with self.lock:
-                cursor = self.connection.cursor()
+        with self.lock:
+            cursor = self.connection.cursor()
+            for q in queries:
+                cursor.execute(q)
+            self.connection.commit()
 
-                for query in query_list:
-                    cursor.execute(query)
-
-                self.connection.commit()
-
-        except sqlite3.Error as error:
-            print("Database setup error:", error)
-
-    def _now(self):
+    # =========================================================
+    # 🕒 TIME
+    # =========================================================
+    def _now(self) -> str:
         return datetime.utcnow().isoformat()
 
-    def save_memory(self, category: str, key_name: str, value: str):
+    # =========================================================
+    # 🧠 MEMORY (KEY-VALUE)
+    # =========================================================
+    def save_memory(self, category: str, key_name: str, value: str) -> bool:
         try:
             with self.lock:
-                cursor = self.connection.cursor()
-
-                cursor.execute(
+                self.connection.execute(
                     """
-                    SELECT id FROM memories
-                    WHERE category = ? AND key_name = ?
+                    INSERT INTO memories (category, key_name, value, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?)
+                    ON CONFLICT(category, key_name)
+                    DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at
                     """,
-                    (category, key_name)
+                    (category, key_name, value, self._now(), self._now())
                 )
-
-                row = cursor.fetchone()
-                now = self._now()
-
-                if row:
-                    cursor.execute(
-                        """
-                        UPDATE memories
-                        SET value = ?, updated_at = ?
-                        WHERE id = ?
-                        """,
-                        (value, now, row["id"])
-                    )
-                else:
-                    cursor.execute(
-                        """
-                        INSERT INTO memories (
-                            category,
-                            key_name,
-                            value,
-                            created_at,
-                            updated_at
-                        )
-                        VALUES (?, ?, ?, ?, ?)
-                        """,
-                        (category, key_name, value, now, now)
-                    )
-
                 self.connection.commit()
+            return True
+        except sqlite3.Error as e:
+            print("Memory save error:", e)
+            return False
 
-        except sqlite3.Error as error:
-            print("Save memory error:", error)
-
-    def get_memory(self, category: str, key_name: str):
+    def get_memory(self, category: str, key_name: str) -> Optional[str]:
         try:
             with self.lock:
-                cursor = self.connection.cursor()
-
-                cursor.execute(
-                    """
-                    SELECT value FROM memories
-                    WHERE category = ? AND key_name = ?
-                    LIMIT 1
-                    """,
+                cur = self.connection.execute(
+                    "SELECT value FROM memories WHERE category=? AND key_name=? LIMIT 1",
                     (category, key_name)
                 )
-
-                row = cursor.fetchone()
-
+                row = cur.fetchone()
                 return row["value"] if row else None
-
-        except sqlite3.Error as error:
-            print("Get memory error:", error)
+        except sqlite3.Error as e:
+            print("Memory fetch error:", e)
             return None
 
-    def get_all_memories(self, category=None):
+    def delete_memory(self, category: str, key_name: str) -> bool:
         try:
             with self.lock:
-                cursor = self.connection.cursor()
+                self.connection.execute(
+                    "DELETE FROM memories WHERE category=? AND key_name=?",
+                    (category, key_name)
+                )
+                self.connection.commit()
+            return True
+        except sqlite3.Error as e:
+            print("Memory delete error:", e)
+            return False
 
+    def get_all_memories(self, category: Optional[str] = None) -> List[Dict]:
+        try:
+            with self.lock:
                 if category:
-                    cursor.execute(
-                        """
-                        SELECT category, key_name, value, updated_at
-                        FROM memories
-                        WHERE category = ?
-                        ORDER BY updated_at DESC
-                        """,
+                    cur = self.connection.execute(
+                        "SELECT * FROM memories WHERE category=? ORDER BY updated_at DESC",
                         (category,)
                     )
                 else:
-                    cursor.execute(
-                        """
-                        SELECT category, key_name, value, updated_at
-                        FROM memories
-                        ORDER BY updated_at DESC
-                        """
+                    cur = self.connection.execute(
+                        "SELECT * FROM memories ORDER BY updated_at DESC"
                     )
 
-                rows = cursor.fetchall()
-
-                return [dict(row) for row in rows]
-
-        except sqlite3.Error as error:
-            print("Fetch memories error:", error)
+                return [dict(r) for r in cur.fetchall()]
+        except sqlite3.Error as e:
+            print("Memory list error:", e)
             return []
 
-    def delete_memory(self, category: str, key_name: str):
+    # =========================================================
+    # 💬 CONVERSATIONS
+    # =========================================================
+    def save_conversation(self, role: str, message: str) -> bool:
         try:
             with self.lock:
-                cursor = self.connection.cursor()
-
-                cursor.execute(
-                    """
-                    DELETE FROM memories
-                    WHERE category = ? AND key_name = ?
-                    """,
-                    (category, key_name)
-                )
-
-                self.connection.commit()
-
-        except sqlite3.Error as error:
-            print("Delete memory error:", error)
-
-    def save_conversation(self, role: str, message: str):
-        try:
-            with self.lock:
-                cursor = self.connection.cursor()
-
-                cursor.execute(
-                    """
-                    INSERT INTO conversations (
-                        role,
-                        message,
-                        created_at
-                    )
-                    VALUES (?, ?, ?)
-                    """,
+                self.connection.execute(
+                    "INSERT INTO conversations (role, message, created_at) VALUES (?, ?, ?)",
                     (role, message, self._now())
                 )
-
                 self.connection.commit()
+            return True
+        except sqlite3.Error as e:
+            print("Conversation save error:", e)
+            return False
 
-        except sqlite3.Error as error:
-            print("Save conversation error:", error)
-
-    def get_recent_conversations(self, limit=10):
+    def get_recent_conversations(self, limit: int = 10) -> List[Dict]:
         try:
             with self.lock:
-                cursor = self.connection.cursor()
-
-                cursor.execute(
+                cur = self.connection.execute(
                     """
                     SELECT role, message, created_at
                     FROM conversations
@@ -225,59 +176,73 @@ class MemoryEngine:
                     """,
                     (limit,)
                 )
-
-                rows = cursor.fetchall()
-
-                data = [dict(row) for row in rows]
-                data.reverse()
-
-                return data
-
-        except sqlite3.Error as error:
-            print("Fetch conversations error:", error)
+                rows = [dict(r) for r in cur.fetchall()]
+                return list(reversed(rows))
+        except sqlite3.Error as e:
+            print("Conversation fetch error:", e)
             return []
 
-    def clear_conversations(self):
+    def clear_conversations(self) -> bool:
         try:
             with self.lock:
-                cursor = self.connection.cursor()
-
-                cursor.execute("DELETE FROM conversations")
-
+                self.connection.execute("DELETE FROM conversations")
                 self.connection.commit()
+            return True
+        except sqlite3.Error as e:
+            print("Conversation clear error:", e)
+            return False
 
-        except sqlite3.Error as error:
-            print("Clear conversations error:", error)
+    # =========================================================
+    # 🧠 ADVANCED (FUTURE READY)
+    # =========================================================
+    def prune_old_conversations(self, keep_last: int = 100):
+        """Keep last N messages, delete older ones"""
+        try:
+            with self.lock:
+                self.connection.execute(
+                    """
+                    DELETE FROM conversations
+                    WHERE id NOT IN (
+                        SELECT id FROM conversations
+                        ORDER BY id DESC LIMIT ?
+                    )
+                    """,
+                    (keep_last,)
+                )
+                self.connection.commit()
+        except sqlite3.Error as e:
+            print("Prune error:", e)
 
     def summarize_old_conversations(self):
-        """
-        Future feature placeholder:
-        summarize old chat history and compress memory.
-        """
+        """Hook for future LLM summarization"""
         pass
 
+    # =========================================================
+    # 🔒 CLOSE
+    # =========================================================
     def close(self):
         try:
             with self.lock:
                 if self.connection:
                     self.connection.close()
+        except sqlite3.Error as e:
+            print("DB close error:", e)
 
-        except sqlite3.Error as error:
-            print("Close database error:", error)
 
-
+# =========================================================
+# 🧪 TEST
+# =========================================================
 if __name__ == "__main__":
-    memory = MemoryEngine()
+    mem = MemoryEngine()
 
-    memory.save_memory("user", "name", "Sadik")
-    memory.save_memory("user", "country", "Bangladesh")
+    mem.save_memory("user", "name", "Sadekul")
+    print(mem.get_memory("user", "name"))
 
-    print(memory.get_memory("user", "name"))
-    print(memory.get_all_memories())
+    mem.save_conversation("user", "Hello")
+    mem.save_conversation("assistant", "Hi!")
 
-    memory.save_conversation("user", "Hello")
-    memory.save_conversation("assistant", "Hi Sadik")
+    print(mem.get_recent_conversations())
 
-    print(memory.get_recent_conversations())
+    mem.prune_old_conversations(50)
 
-    memory.close()
+    mem.close()

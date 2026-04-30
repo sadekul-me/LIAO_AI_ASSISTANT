@@ -1,23 +1,14 @@
-import React, {
-  createContext,
-  useContext,
-  useState,
-} from "react";
-
+import React, { createContext, useContext, useState } from "react";
 import { sendMessageToAI } from "../services/ai.service";
 
 export const AIContext = createContext();
 
-/* =========================================
-   PROVIDER
-========================================= */
 export const AIProvider = ({ children }) => {
   const [messages, setMessages] = useState([
     {
       id: crypto.randomUUID(),
       role: "ai",
-      content:
-        "Hello Sadekul 👋\nI'm LIAO AI. How can I assist you today?",
+      content: "Hello Sadekul 👋 I'm LIAO AI. How can I assist you today?",
       time: formatTime(),
       status: "done",
     },
@@ -25,17 +16,16 @@ export const AIProvider = ({ children }) => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
-  const [currentModel, setCurrentModel] =
-    useState("LIAO-v3-Turbo");
+  const [currentModel, setCurrentModel] = useState("LIAO-v3-Turbo");
 
-  /* =========================================
-     SEND MESSAGE
-  ========================================= */
+  /* =========================
+     SEND MESSAGE (CLEAN)
+  ========================= */
   const sendMessage = async (text) => {
     const cleanText = text?.trim();
-
     if (!cleanText || isLoading) return;
 
+    // USER MESSAGE
     const userMessage = {
       id: crypto.randomUUID(),
       role: "user",
@@ -45,20 +35,6 @@ export const AIProvider = ({ children }) => {
     };
 
     setMessages((prev) => [...prev, userMessage]);
-
-    const tempId = crypto.randomUUID();
-
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: tempId,
-        role: "ai",
-        content: "Thinking...",
-        time: formatTime(),
-        status: "typing",
-      },
-    ]);
-
     setIsLoading(true);
 
     try {
@@ -69,46 +45,38 @@ export const AIProvider = ({ children }) => {
           ? res
           : res?.reply || res?.message || "No response";
 
-      // ✅ SUCCESS → ONLINE
       setIsOnline(true);
 
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === tempId
-            ? {
-                ...msg,
-                content: reply,
-                status: "done",
-                time: formatTime(),
-              }
-            : msg
-        )
-      );
+      // AI RESPONSE (DIRECT UPDATE, NO "Thinking" MESSAGE)
+      const aiMessage = {
+        id: crypto.randomUUID(),
+        role: "ai",
+        content: reply,
+        time: formatTime(),
+        status: "done",
+      };
+
+      setMessages((prev) => [...prev, aiMessage]);
     } catch (err) {
-      // ❌ ERROR → OFFLINE
       setIsOnline(false);
 
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === tempId
-            ? {
-                ...msg,
-                content:
-                  "AI is currently unavailable 😓",
-                status: "error",
-                time: formatTime(),
-              }
-            : msg
-        )
-      );
+      const errorMessage = {
+        id: crypto.randomUUID(),
+        role: "ai",
+        content: "AI is currently unavailable 😓",
+        time: formatTime(),
+        status: "error",
+      };
+
+      setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  /* =========================================
+  /* =========================
      CLEAR CHAT
-  ========================================= */
+  ========================= */
   const clearChat = () => {
     setMessages([
       {
@@ -121,9 +89,6 @@ export const AIProvider = ({ children }) => {
     ]);
   };
 
-  /* =========================================
-     PROVIDER VALUE
-  ========================================= */
   return (
     <AIContext.Provider
       value={{
@@ -141,18 +106,15 @@ export const AIProvider = ({ children }) => {
   );
 };
 
-/* =========================================
+/* =========================
    HELPERS
-========================================= */
+========================= */
 const formatTime = () =>
   new Date().toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
   });
 
-/* =========================================
-   HOOK
-========================================= */
 export const useAI = () => {
   const context = useContext(AIContext);
 

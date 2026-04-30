@@ -1,11 +1,11 @@
 import axios from "axios";
 
 /* ==================================================
-   API CONFIG
+   BASE CONFIG
 ================================================== */
 const BASE_URL =
   import.meta.env.VITE_API_URL ||
-  "http://localhost:8000";
+  "http://127.0.0.1:8000";
 
 /* ==================================================
    AXIOS INSTANCE
@@ -13,17 +13,47 @@ const BASE_URL =
 const api = axios.create({
   baseURL: BASE_URL,
   timeout: 15000,
+  withCredentials: false,
   headers: {
     "Content-Type": "application/json",
+    Accept: "application/json",
   },
 });
+
+/* ==================================================
+   HELPERS
+================================================== */
+const getToken = () => {
+  return localStorage.getItem("liao_auth_token");
+};
+
+const clearAuth = () => {
+  localStorage.removeItem("liao_auth_token");
+  localStorage.removeItem("liao_auth_user");
+};
+
+const buildError = (error) => {
+  const status = error?.response?.status || 500;
+
+  const message =
+    error?.response?.data?.detail ||
+    error?.response?.data?.message ||
+    error?.message ||
+    "Request failed";
+
+  return {
+    status,
+    message,
+    raw: error,
+  };
+};
 
 /* ==================================================
    REQUEST INTERCEPTOR
 ================================================== */
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("liao_auth_token");
+    const token = getToken();
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -31,9 +61,7 @@ api.interceptors.request.use(
 
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(buildError(error))
 );
 
 /* ==================================================
@@ -41,68 +69,153 @@ api.interceptors.request.use(
 ================================================== */
 api.interceptors.response.use(
   (response) => response,
-
   (error) => {
     const status = error?.response?.status;
-    const message =
-      error?.response?.data?.message ||
-      error.message ||
-      "Request failed";
 
-    /* Unauthorized */
     if (status === 401) {
-      localStorage.removeItem("liao_auth_token");
-      localStorage.removeItem("liao_auth_user");
+      clearAuth();
     }
 
-    /* Optional global logging */
-    console.error("API Error:", status, message);
+    const formatted = buildError(error);
 
-    return Promise.reject({
-      status,
-      message,
-      raw: error,
-    });
+    console.error("API ERROR:", formatted.status, formatted.message);
+
+    return Promise.reject(formatted);
   }
 );
 
 /* ==================================================
-   VOICE SERVICES (STT & TTS)
+   GENERIC REQUEST METHODS
 ================================================== */
-
-/**
- * Speech To Text: Sends audio file to backend
- * @param {Blob} audioFile - The recorded audio blob
- */
-export const speechToText = async (audioFile) => {
-  const formData = new FormData();
-  // Key must be 'file' as defined in FastAPI backend
-  formData.append("file", audioFile, "recording.wav");
-
-  const res = await api.post("/voice/stt", formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-  });
-
+export const getRequest = async (url, config = {}) => {
+  const res = await api.get(url, config);
   return res.data;
 };
 
-/**
- * Text To Speech: Sends text to get audio path
- * @param {string} text - The response text from AI
- */
-export const textToSpeech = async (text) => {
-  const res = await api.post("/voice/tts", { text });
+export const postRequest = async (url, data = {}, config = {}) => {
+  const res = await api.post(url, data, config);
+  return res.data;
+};
+
+export const putRequest = async (url, data = {}, config = {}) => {
+  const res = await api.put(url, data, config);
+  return res.data;
+};
+
+export const deleteRequest = async (url, config = {}) => {
+  const res = await api.delete(url, config);
   return res.data;
 };
 
 /* ==================================================
-   HEALTH CHECK
+   CHAT SERVICES
+================================================== */
+export const sendChatMessage = async (
+  message,
+  sessionId = "frontend_user"
+) => {
+  return await postRequest("/chat", {
+    message,
+    session_id: sessionId,
+  });
+};
+
+export const detectIntent = async (
+  message,
+  sessionId = "frontend_user"
+) => {
+  return await postRequest("/chat/intent", {
+    message,
+    session_id: sessionId,
+  });
+};
+
+export const getChatStatus = async () => {
+  return await getRequest("/chat");
+};
+
+export const pingChat = async () => {
+  return await getRequest("/chat/ping");
+};
+
+/* ==================================================
+   VOICE SERVICES
+================================================== */
+
+/* Speech To Text */
+export const speechToText = async (audioBlob) => {
+  const formData = new FormData();
+
+  formData.append(
+    "file",
+    audioBlob,
+    "liao_recording.wav"
+  );
+
+  const res = await api.post(
+    "/voice/stt",
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    }
+  );
+
+  return res.data;
+};
+
+/* Text To Speech */
+export const textToSpeech = async (text) => {
+  return await postRequest("/voice/tts", {
+    text,
+  });
+};
+
+export const getVoiceStatus = async () => {
+  return await getRequest("/voice/status");
+};
+
+/* Build Audio URL */
+export const getAudioUrl = (fileName) => {
+  if (!fileName) return "";
+
+  const cleanName = fileName
+    .split("\\")
+    .pop()
+    .split("/")
+    .pop();
+
+  return `${BASE_URL}/static/${cleanName}?t=${Date.now()}`;
+};
+
+/* ==================================================
+   SYSTEM / HEALTH
 ================================================== */
 export const pingServer = async () => {
-  const res = await api.get("/health");
-  return res.data;
+  try {
+    return await getRequest("/health");
+  } catch {
+    return {
+      status: "offline",
+    };
+  }
+};
+
+export const checkBackend = async () => {
+  try {
+    await getRequest("/chat/ping");
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/* ==================================================
+   AUTH PLACEHOLDER
+================================================== */
+export const logoutUser = () => {
+  clearAuth();
 };
 
 /* ==================================================
