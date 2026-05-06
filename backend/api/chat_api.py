@@ -1,15 +1,16 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 from datetime import datetime
 import time
 import traceback
+import requests
 
 from backend.core.ai_engine import AIEngine
+from backend.core.decision_engine import DecisionEngine
 
 # ==================================================
-# 🚀 LIAO CHAT API ULTRA PRO v3
-# Fast / Clean / Production Ready
+# 🚀 LIAO CHAT API ULTRA PRO v5 (REAL JARVIS ROUTER)
 # ==================================================
 
 router = APIRouter(
@@ -17,14 +18,11 @@ router = APIRouter(
     tags=["Chat"]
 )
 
-# ==================================================
-# GLOBAL AI ENGINE (Single Instance = Faster)
-# ==================================================
 ai_engine = AIEngine()
+decision_engine = DecisionEngine()
 
-# ==================================================
-# SIMPLE MEMORY CACHE
-# ==================================================
+COMMAND_API = "http://127.0.0.1:8000/command/execute"
+
 server_started = datetime.now()
 total_requests = 0
 total_errors = 0
@@ -47,26 +45,127 @@ class ChatResponse(BaseModel):
 
 
 # ==================================================
-# UTILITIES
+# UTIL
 # ==================================================
 def now():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
-def clean_text(text: str) -> str:
-    return text.strip().replace("\n", " ").replace("\r", "")
+def clean(text: str):
+    return text.strip()
+
+
+# ==================================================
+# 🔥 SMART COMMAND DETECTION (AI BASED)
+# ==================================================
+def should_execute(decision: Dict[str, Any]) -> bool:
+    """
+    👉 Only execute if it's real action intent
+    """
+    return decision.get("intent") not in ["chat", "empty"]
+
+
+# ==================================================
+# MAIN CHAT
+# ==================================================
+@router.post("", response_model=ChatResponse)
+def chat(request: ChatRequest):
+
+    global total_requests, total_errors
+    total_requests += 1
+
+    start = time.time()
+
+    try:
+        user_message = clean(request.message)
+
+        print("\n" + "=" * 60)
+        print(f"USER: {user_message}")
+
+        # ==================================================
+        # 🧠 DECISION ENGINE FIRST (IMPORTANT CHANGE)
+        # ==================================================
+        decision = decision_engine.analyze(user_message)
+
+        print("🧠 DECISION:", decision)
+
+        # ==================================================
+        # ⚙️ COMMAND MODE (SMART)
+        # ==================================================
+        if should_execute(decision):
+
+            try:
+                res = requests.post(
+                    COMMAND_API,
+                    json={"text": user_message},
+                    timeout=5
+                )
+
+                if res.status_code == 200:
+                    data = res.json()
+
+                    reply = data.get("message", "Done")
+
+                    print("⚙️ COMMAND OK:", data)
+
+                    return ChatResponse(
+                        success=True,
+                        reply=f"⚡ {reply}",
+                        provider="command-engine",
+                        latency=round(time.time() - start, 3),
+                        timestamp=now()
+                    )
+
+                else:
+                    print("⚠️ COMMAND API FAILED:", res.text)
+
+            except Exception as e:
+                print("❌ COMMAND ERROR:", str(e))
+
+        # ==================================================
+        # 🧠 AI CHAT FALLBACK
+        # ==================================================
+        reply = ai_engine.generate_response(
+            user_input=user_message,
+            session_id=request.session_id
+        )
+
+        provider = getattr(ai_engine, "last_provider", "ai")
+        latency = round(time.time() - start, 3)
+
+        print(f"REPLY: {reply}")
+        print(f"PROVIDER: {provider}")
+        print("=" * 60 + "\n")
+
+        return ChatResponse(
+            success=True,
+            reply=reply,
+            provider=provider,
+            latency=latency,
+            timestamp=now()
+        )
+
+    except Exception as e:
+        total_errors += 1
+
+        print("💥 SYSTEM ERROR:", str(e))
+        traceback.print_exc()
+
+        return ChatResponse(
+            success=False,
+            reply="System error occurred.",
+            provider="error",
+            latency=0,
+            timestamp=now()
+        )
 
 
 # ==================================================
 # STATUS
 # ==================================================
-@router.get("")
-def chat_status():
+@router.get("/stats")
+def stats():
     return {
-        "service": "chat",
-        "status": "online",
-        "ai_ready": True,
-        "provider": getattr(ai_engine, "last_provider", "offline"),
         "uptime": str(datetime.now() - server_started).split(".")[0],
         "requests": total_requests,
         "errors": total_errors,
@@ -78,167 +177,6 @@ def chat_status():
 def ping():
     return {
         "success": True,
-        "message": "LIAO Chat API Online",
+        "message": "Jarvis Chat Online 🚀",
         "time": now()
-    }
-
-
-@router.get("/stats")
-def stats():
-    return {
-        "uptime": str(datetime.now() - server_started).split(".")[0],
-        "requests": total_requests,
-        "errors": total_errors,
-        "provider": getattr(ai_engine, "last_provider", "offline"),
-        "latency": getattr(ai_engine, "last_latency", 0)
-    }
-
-
-# ==================================================
-# MAIN CHAT API
-# ==================================================
-@router.post("", response_model=ChatResponse)
-def chat(request: ChatRequest):
-
-    global total_requests, total_errors
-    total_requests += 1
-
-    start = time.time()
-
-    try:
-        user_message = clean_text(request.message)
-
-        if not user_message:
-            raise HTTPException(
-                status_code=400,
-                detail="Message cannot be empty"
-            )
-
-        print("\n" + "=" * 60)
-        print(f"USER ({request.session_id}): {user_message}")
-
-        # Generate AI Reply
-        reply = ai_engine.generate_response(
-            user_input=user_message,
-            session_id=request.session_id
-        )
-
-        provider = getattr(ai_engine, "last_provider", "offline")
-
-        if not reply:
-            reply = "I am unable to respond right now."
-
-        latency = round(time.time() - start, 3)
-
-        print(f"REPLY: {reply}")
-        print(f"PROVIDER: {provider}")
-        print(f"LATENCY: {latency}s")
-        print("=" * 60 + "\n")
-
-        return ChatResponse(
-            success=True,
-            reply=reply,
-            provider=provider,
-            latency=latency,
-            timestamp=now()
-        )
-
-    except HTTPException as e:
-        total_errors += 1
-        raise e
-
-    except Exception as e:
-        total_errors += 1
-
-        print("SYSTEM ERROR:", str(e))
-        traceback.print_exc()
-
-        return ChatResponse(
-            success=False,
-            reply="Internal server error.",
-            provider="error",
-            latency=0,
-            timestamp=now()
-        )
-
-
-# ==================================================
-# INTENT DETECTION
-# ==================================================
-@router.post("/intent")
-def detect_intent(request: ChatRequest):
-
-    try:
-        text = clean_text(request.message)
-
-        if not text:
-            raise HTTPException(
-                status_code=400,
-                detail="Empty message"
-            )
-
-        if hasattr(ai_engine, "detect_intent"):
-            result = ai_engine.detect_intent(text)
-        else:
-            result = {
-                "intent": "chat",
-                "target": "",
-                "action": ""
-            }
-
-        return {
-            "success": True,
-            "data": result,
-            "time": now()
-        }
-
-    except Exception as e:
-        return {
-            "success": False,
-            "data": {
-                "intent": "chat",
-                "target": "",
-                "action": ""
-            },
-            "error": str(e)
-        }
-
-
-# ==================================================
-# QUICK TEST
-# ==================================================
-@router.get("/test/{msg}")
-def quick_test(msg: str):
-
-    try:
-        reply = ai_engine.generate_response(msg)
-
-        return {
-            "success": True,
-            "message": msg,
-            "reply": reply,
-            "provider": getattr(ai_engine, "last_provider", "offline")
-        }
-
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
-
-
-# ==================================================
-# RESET STATS
-# ==================================================
-@router.post("/reset")
-def reset_stats():
-
-    global total_requests, total_errors
-
-    total_requests = 0
-    total_errors = 0
-
-    return {
-        "success": True,
-        "message": "Stats reset complete."
     }

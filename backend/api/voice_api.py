@@ -2,7 +2,7 @@ import os
 import uuid
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
 from pydantic import BaseModel, Field
@@ -24,7 +24,7 @@ router = APIRouter(
 )
 
 # ==================================================
-# SINGLETON SERVICES
+# SINGLETON SERVICES (OPTIMIZED)
 # ==================================================
 stt = SpeechToTextService()
 tts = TextToSpeechService()
@@ -36,6 +36,12 @@ ai = AIEngine()
 BASE_DIR = Path(__file__).resolve().parents[2]
 STATIC_DIR = BASE_DIR / "static"
 STATIC_DIR.mkdir(exist_ok=True)
+
+# ==================================================
+# CONFIG
+# ==================================================
+MAX_AUDIO_SIZE_MB = 10
+AUDIO_EXPIRY_SEC = 3600
 
 # ==================================================
 # REQUEST MODELS
@@ -50,9 +56,9 @@ class AskRequest(BaseModel):
 
 
 # ==================================================
-# HELPERS
+# RESPONSE HELPERS
 # ==================================================
-def success(data: dict):
+def success(data: Dict[str, Any]):
     return JSONResponse({"success": True, **data})
 
 
@@ -60,6 +66,9 @@ def fail(message: str):
     return JSONResponse({"success": False, "error": message})
 
 
+# ==================================================
+# FILE HELPERS
+# ==================================================
 def remove_file_safe(path: Path):
     try:
         if path.exists():
@@ -69,20 +78,35 @@ def remove_file_safe(path: Path):
 
 
 def clean_old_audio_files():
-    """
-    Remove generated mp3 older than 1 hour
-    """
     try:
         now = time.time()
 
         for file in STATIC_DIR.glob("liao_voice_*.mp3"):
-            age = now - file.stat().st_mtime
-
-            if age > 3600:
+            if now - file.stat().st_mtime > AUDIO_EXPIRY_SEC:
                 remove_file_safe(file)
 
     except:
         pass
+
+
+def validate_audio(file: UploadFile):
+    if not file:
+        raise HTTPException(400, "Audio file required")
+
+    if file.size and file.size > MAX_AUDIO_SIZE_MB * 1024 * 1024:
+        raise HTTPException(400, "Audio too large")
+
+
+# ==================================================
+# 🧠 SMART COMMAND DETECTION (VOICE)
+# ==================================================
+def is_voice_command(text: str) -> bool:
+    triggers = [
+        "open", "run", "create", "write", "search",
+        "shutdown", "restart",
+        "খুলো", "চালাও", "তৈরি", "লিখ", "খুঁজ"
+    ]
+    return any(t in text.lower() for t in triggers)
 
 
 # ==================================================
@@ -94,21 +118,16 @@ async def speech_to_text(
     file: UploadFile = File(...)
 ):
     try:
-        if not file:
-            raise HTTPException(status_code=400, detail="Audio file required")
+        validate_audio(file)
 
-        ext = "wav"
+        ext = file.filename.split(".")[-1] if file.filename else "wav"
 
-        if file.filename and "." in file.filename:
-            ext = file.filename.split(".")[-1].lower()
-
-        temp_name = f"upload_{uuid.uuid4().hex}.{ext}"
-        temp_path = STATIC_DIR / temp_name
+        temp_path = STATIC_DIR / f"upload_{uuid.uuid4().hex}.{ext}"
 
         audio_bytes = await file.read()
 
         if not audio_bytes:
-            return fail("Empty audio file")
+            return fail("Empty audio")
 
         with open(temp_path, "wb") as f:
             f.write(audio_bytes)
@@ -145,12 +164,9 @@ async def text_to_speech(
         file_name = f"liao_voice_{uuid.uuid4().hex[:8]}.mp3"
         output_path = STATIC_DIR / file_name
 
-        result = tts.speak(
-            text=text,
-            output_path=str(output_path)
-        )
+        result = tts.speak(text=text, output_path=str(output_path))
 
-        if not result or not result.get("success"):
+        if not result.get("success"):
             return fail(result.get("error", "TTS failed"))
 
         return success({
@@ -162,8 +178,8 @@ async def text_to_speech(
 
 
 # ==================================================
-# 🤖 FULL VOICE AI PIPELINE
-# Text -> AI -> TTS
+# 🤖 FULL VOICE PIPELINE (🔥 JARVIS MODE)
+# STT → INTENT → ACTION/AI → TTS
 # ==================================================
 @router.post("/ask")
 async def ask_voice(
@@ -176,15 +192,34 @@ async def ask_voice(
         if not text:
             return fail("Text empty")
 
-        # AI Reply
-        reply = ai.generate_response(
-            user_input=text,
-            session_id=payload.session_id
-        )
+        start = time.time()
+
+        # ==================================================
+        # 🧠 AI INTENT DETECTION
+        # ==================================================
+        decision = ai.detect_intent(text)
+
+        # ==================================================
+        # ⚙️ COMMAND MODE (VOICE → ACTION)
+        # ==================================================
+        if decision.get("intent") != "chat":
+
+            reply = ai._handle_action(decision)
+
+        else:
+            # ==================================================
+            # 💬 NORMAL AI CHAT
+            # ==================================================
+            reply = ai.generate_response(
+                user_input=text,
+                session_id=payload.session_id
+            )
 
         provider = ai.last_provider
 
-        # Generate Voice
+        # ==================================================
+        # 🔊 TTS GENERATION
+        # ==================================================
         clean_old_audio_files()
 
         file_name = f"liao_voice_{uuid.uuid4().hex[:8]}.mp3"
@@ -195,15 +230,15 @@ async def ask_voice(
             output_path=str(output_path)
         )
 
-        audio_file = None
+        audio_file = file_name if tts_result.get("success") else None
 
-        if tts_result and tts_result.get("success"):
-            audio_file = file_name
+        latency = round(time.time() - start, 3)
 
         return success({
             "user_text": text,
             "reply": reply,
             "provider": provider,
+            "latency": latency,
             "audio_path": audio_file
         })
 
@@ -212,15 +247,15 @@ async def ask_voice(
 
 
 # ==================================================
-# STATUS
+# 📊 STATUS
 # ==================================================
 @router.get("/status")
 def get_voice_status():
     return {
         "status": "online",
-        "voice_api": "active",
-        "stt_service": "active",
-        "tts_service": "active",
-        "ai_engine": "active",
+        "voice_pipeline": "active",
+        "stt": "ready",
+        "tts": "ready",
+        "ai": "connected",
         "static_dir": str(STATIC_DIR)
     }

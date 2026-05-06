@@ -2,231 +2,227 @@ from __future__ import annotations
 
 import re
 from difflib import get_close_matches
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 
 
 class DecisionEngine:
     """
-    LIAO AI Decision Engine (Ultra Pro Version)
+    🔥 LIAO AI - ULTRA BRAIN v4 (Real Jarvis Core)
 
     Features:
-    - Hybrid intent detection (rule + fuzzy + scoring)
-    - Multi-language support (EN + BN)
-    - Modular design
-    - AI fallback (safe)
-    - Future extensibility
+    - Bangla + English hybrid command support
+    - Context-aware memory
+    - Multi-intent scoring system
+    - AI-powered code generation fallback
+    - Smart extraction (file, path, project, message)
+    - Dev automation ready
     """
 
     def __init__(self, ai_engine: Optional[object] = None):
         self.ai_engine = ai_engine
 
-        # =========================================
+        # 🧠 context memory (last action)
+        self.context: Dict[str, Any] = {}
+
+        # =========================
         # APP KEYWORDS
-        # =========================================
+        # =========================
         self.app_keywords = {
-            "vscode": ["vscode", "vs code", "visual studio code"],
-            "chrome": ["chrome", "google chrome", "browser"],
+            "vscode": ["vscode", "vs code", "কোড এডিটর"],
+            "chrome": ["chrome", "browser", "ব্রাউজার"],
             "notepad": ["notepad"],
-            "calculator": ["calculator", "calc"],
             "spotify": ["spotify"],
-            "telegram": ["telegram"],
-            "discord": ["discord"],
-            "photoshop": ["photoshop", "ps"],
-            "filmora": ["filmora"]
+            "terminal": ["terminal", "cmd", "টার্মিনাল"],
         }
 
-        # =========================================
-        # INTENT WEIGHTS (CORE INTELLIGENCE)
-        # =========================================
-        self.intent_patterns = {
-            "open_app": {
-                "keywords": ["open", "launch", "run", "start", "খুলো", "চালু করো"],
-                "weight": 2
-            },
-            "search_web": {
-                "keywords": ["search", "google", "find", "look for", "খুঁজে দাও"],
-                "weight": 2
-            },
-            "create_file": {
-                "keywords": ["create file", "new project", "make file", "প্রজেক্ট বানাও"],
-                "weight": 2
-            },
-            "system_action": {
-                "keywords": ["shutdown", "restart", "lock", "sleep", "mute"],
-                "weight": 3
-            }
+        # =========================
+        # INTENTS (WITH BANGLA)
+        # =========================
+        self.intents = {
+            "open_app": {"k": ["open", "launch", "run", "খুলো"], "w": 2},
+            "open_website": {"k": ["open website", "go to", "ওপেন কর"], "w": 2},
+            "play_media": {"k": ["play", "watch", "চালাও"], "w": 3},
+
+            "create_folder": {"k": ["create folder", "folder বানাও"], "w": 3},
+            "create_file": {"k": ["create file", "file বানাও"], "w": 3},
+            "write_code": {"k": ["write code", "code লিখ", "generate code"], "w": 5},
+            "run_code": {"k": ["run code", "execute", "চালাও"], "w": 4},
+            "create_project": {"k": ["create project", "project বানাও"], "w": 4},
+
+            "copy": {"k": ["copy", "কপি"], "w": 3},
+            "move": {"k": ["move", "সরাও"], "w": 3},
+            "delete": {"k": ["delete", "remove", "ডিলিট"], "w": 3},
+
+            "search_web": {"k": ["search", "google", "খুঁজ"], "w": 2},
+            "send_whatsapp": {"k": ["whatsapp", "message পাঠাও"], "w": 3},
+
+            "system": {"k": ["shutdown", "restart", "lock"], "w": 5},
         }
 
-    # ==================================================
-    # MAIN ANALYSIS (CORE BRAIN)
-    # ==================================================
+    # =========================================
+    # 🧠 MAIN ENTRY
+    # =========================================
     def analyze(self, text: str) -> Dict[str, Any]:
-        text_clean = text.strip().lower()
+        clean = text.lower().strip()
 
-        if not text_clean:
-            return self._response("empty", "No input detected.")
+        if not clean:
+            return self._res("empty", "No input")
 
-        # Exit shortcut
-        if self._is_exit(text_clean):
-            return self._response("system_action", "Exit detected.", action="exit")
+        # exit command
+        if any(x in clean for x in ["exit", "quit"]):
+            return self._res("system", "Exit", action="exit")
 
-        # Score all intents
-        scores = self._score_intents(text_clean)
+        intent = self._detect_intent(clean)
 
-        # Pick best intent
-        best_intent = max(scores, key=scores.get)
+        if intent:
+            result = self._handle(intent, text, clean)
 
-        if scores[best_intent] > 0:
-            return self._handle_intent(best_intent, text, text_clean)
+            # 🔥 save context
+            self.context = result
+            return result
 
-        # AI fallback
-        return self._fallback_ai(text)
+        return self._fallback(text)
 
-    # ==================================================
-    # SCORING SYSTEM
-    # ==================================================
-    def _score_intents(self, text: str) -> Dict[str, int]:
-        scores = {intent: 0 for intent in self.intent_patterns}
+    # =========================================
+    # 🎯 INTENT DETECTION (SMART SCORING)
+    # =========================================
+    def _detect_intent(self, text: str) -> str:
+        scores = {i: 0 for i in self.intents}
 
-        for intent, config in self.intent_patterns.items():
-            for keyword in config["keywords"]:
-                if keyword in text:
-                    scores[intent] += config["weight"]
+        for intent, data in self.intents.items():
+            for k in data["k"]:
+                if k in text:
+                    scores[intent] += data["w"]
 
-        # App detection boost
+        # boost if app detected
         if self._extract_app(text):
             scores["open_app"] += 3
 
-        return scores
+        best = max(scores, key=scores.get)
+        return best if scores[best] > 0 else ""
 
-    # ==================================================
-    # INTENT HANDLER
-    # ==================================================
-    def _handle_intent(self, intent: str, raw: str, clean: str):
+    # =========================================
+    # ⚙️ HANDLER
+    # =========================================
+    def _handle(self, intent, raw, clean):
 
         if intent == "open_app":
-            app = self._extract_app(clean)
-            return self._response(intent, f"{app} খুলছি", target=app)
-
-        if intent == "search_web":
-            query = self._extract_search(raw)
-            return self._response(intent, "Searching...", target=query)
+            return self._res(intent, "Opening app", target=self._extract_app(clean))
 
         if intent == "create_file":
-            return self._response(intent, "File creation requested.")
+            return self._res(intent, "Creating file", target=self._extract_file(raw))
 
-        if intent == "system_action":
-            action = self._extract_system(clean)
-            return self._response(intent, "System action", action=action)
+        if intent == "write_code":
+            return self._res(
+                intent,
+                "Writing code",
+                target=self._extract_file(raw),
+                data={"code": self._generate_code(raw)}
+            )
 
-        return self._response("chat", "General conversation.")
+        if intent == "run_code":
+            return self._res(intent, "Running code", target=self._extract_file(raw))
 
-    # ==================================================
-    # APP DETECTION
-    # ==================================================
-    def _extract_app(self, text: str) -> str:
+        if intent == "create_project":
+            return self._res(
+                intent,
+                "Creating project",
+                target=self._extract_project_name(raw),
+                data={"type": self._extract_project_type(raw)}
+            )
 
-        # Direct match
+        if intent == "search_web":
+            return self._res(intent, "Searching", target=self._extract_search(raw))
+
+        if intent == "send_whatsapp":
+            return self._res(intent, "Sending message", target=self._extract_message(raw))
+
+        if intent == "system":
+            return self._res(intent, "System action", action=self._extract_system(clean))
+
+        return self._res("chat", "Normal conversation")
+
+    # =========================================
+    # 🧠 SMART CODE GENERATION
+    # =========================================
+    def _generate_code(self, text: str) -> str:
+
+        # 🔥 AI-powered (BEST)
+        if self.ai_engine and hasattr(self.ai_engine, "generate_code"):
+            try:
+                return self.ai_engine.generate_code(text)
+            except:
+                pass
+
+        # ⚡ fallback templates
+        if "fastapi" in text:
+            return """from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/")
+def home():
+    return {"message": "Hello from LIAO AI"}"""
+
+        if "loop" in text:
+            return """for i in range(10):
+    print(i)"""
+
+        return "print('🔥 LIAO AI')"
+
+    # =========================================
+    # 🔍 EXTRACTION
+    # =========================================
+    def _extract_app(self, text):
         for app, aliases in self.app_keywords.items():
-            if any(alias in text for alias in aliases):
+            if any(a in text for a in aliases):
                 return app
-
-        # Fuzzy match
-        all_aliases = [alias for v in self.app_keywords.values() for alias in v]
-
-        for word in text.split():
-            match = get_close_matches(word, all_aliases, n=1, cutoff=0.75)
-            if match:
-                for app, aliases in self.app_keywords.items():
-                    if match[0] in aliases:
-                        return app
-
         return ""
 
-    # ==================================================
-    # SEARCH
-    # ==================================================
-    def _extract_search(self, text: str) -> str:
-        return re.sub(
-            r"(search|google|find|look for|খুঁজে দাও)",
-            "",
-            text,
-            flags=re.IGNORECASE
-        ).strip()
+    def _extract_file(self, text):
+        match = re.search(r"([\w\-/\\]+\.\w+)", text)
+        return match.group(1) if match else "main.py"
 
-    # ==================================================
-    # SYSTEM
-    # ==================================================
-    def _extract_system(self, text: str) -> str:
-        mapping = {
-            "shutdown": "shutdown",
-            "restart": "restart",
-            "lock": "lock",
-            "sleep": "sleep",
-            "mute": "mute",
-        }
+    def _extract_search(self, text):
+        return re.sub(r"(search|google|play)", "", text, flags=re.I).strip()
 
-        for key, value in mapping.items():
-            if key in text:
-                return value
+    def _extract_message(self, text):
+        return re.sub(r"(send message|whatsapp)", "", text, flags=re.I).strip()
 
+    def _extract_project_name(self, text):
+        match = re.search(r"project\s+(\w+)", text)
+        return match.group(1) if match else "liao_project"
+
+    def _extract_project_type(self, text):
+        return "react" if "react" in text else "python"
+
+    def _extract_system(self, text):
+        for k in ["shutdown", "restart", "lock"]:
+            if k in text:
+                return k
         return "unknown"
 
-    # ==================================================
-    # EXIT
-    # ==================================================
-    def _is_exit(self, text: str) -> bool:
-        return any(x in text for x in ["exit", "quit", "বন্ধ"])
+    # =========================================
+    # 🤖 FALLBACK AI
+    # =========================================
+    def _fallback(self, text):
 
-    # ==================================================
-    # FALLBACK AI
-    # ==================================================
-    def _fallback_ai(self, text: str) -> Dict[str, Any]:
-
-        if self.ai_engine:
+        if self.ai_engine and hasattr(self.ai_engine, "detect_intent"):
             try:
-                result = self.ai_engine.detect_intent(text)
+                return self.ai_engine.detect_intent(text)
+            except:
+                pass
 
-                if isinstance(result, dict):
-                    return {
-                        "intent": result.get("intent", "chat"),
-                        "target": result.get("target", ""),
-                        "action": result.get("action", ""),
-                        "message": result.get("message", "AI response")
-                    }
+        return self._res("chat", "AI response")
 
-            except Exception as e:
-                print("AI fallback error:", e)
-
-        return self._response("chat", "General conversation.")
-
-    # ==================================================
-    # RESPONSE FORMAT
-    # ==================================================
-    def _response(self, intent, message, target="", action=""):
+    # =========================================
+    # 📤 RESPONSE FORMAT
+    # =========================================
+    def _res(self, intent, message, target="", action="", data=None):
         return {
             "intent": intent,
+            "message": message,
             "target": target,
             "action": action,
-            "message": message
+            "data": data or {}
         }
-
-
-# ==================================================
-# TEST
-# ==================================================
-if __name__ == "__main__":
-    engine = DecisionEngine()
-
-    tests = [
-        "open vscode",
-        "open vscod",
-        "launch chrome",
-        "google python decorators",
-        "shutdown system",
-        "create project",
-        "hello",
-    ]
-
-    for t in tests:
-        print(t, "→", engine.analyze(t))

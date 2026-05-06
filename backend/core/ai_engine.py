@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import os
 import time
+import threading
 import subprocess
 import webbrowser
-import threading
-from typing import Optional, Dict, Any, Callable, List
+from typing import Optional, Dict, Any, Callable
 
 from dotenv import load_dotenv
 from groq import Groq
@@ -16,33 +16,44 @@ from backend.core.context_manager import ContextManager
 from backend.core.memory_engine import MemoryEngine
 from backend.core.decision_engine import DecisionEngine
 
-load_dotenv()
+
+# ==================================================
+# 🔥 FORCE LOAD ENV (VERY IMPORTANT FIX)
+# ==================================================
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+ENV_PATH = os.path.join(BASE_DIR, ".env")
+load_dotenv(ENV_PATH)
 
 
 class AIEngine:
     """
-    🚀 LIAO / JARVIS CORE v9.0 (ULTRA EDITION)
+    🧠 LIAO JARVIS CORE v12 (STABLE + DEBUG FIXED)
 
-    Features:
-    - Smart provider routing
-    - Retry + fallback
-    - Optimized token usage
-    - Action-safe execution
-    - Memory-aware prompts
-    - Thread-safe status tracking
+    ✔ Groq → DeepSeek → OpenRouter fallback
+    ✔ Strong debug logs
+    ✔ Stable env loading
+    ✔ Production safe
     """
 
     def __init__(self) -> None:
 
         # =========================
-        # ENV
+        # API KEYS
         # =========================
-        self.deepseek_api_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
-        self.groq_api_key = os.getenv("GROQ_API_KEY", "").strip()
-        self.openrouter_api_key = os.getenv("OPENROUTER_API_KEY", "").strip()
+        self.groq_api_key = os.getenv("GROQ_API_KEY")
+        self.deepseek_api_key = os.getenv("DEEPSEEK_API_KEY")
+        self.openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
 
+        print("🔑 KEYS STATUS:")
+        print("GROQ:", bool(self.groq_api_key))
+        print("DEEPSEEK:", bool(self.deepseek_api_key))
+        print("OPENROUTER:", bool(self.openrouter_api_key))
+
+        # =========================
+        # MODELS (SAFE DEFAULT)
+        # =========================
+        self.groq_model = os.getenv("GROQ_MODEL", "llama3-70b-8192")
         self.deepseek_model = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
-        self.groq_model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
         self.openrouter_model = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
 
         # =========================
@@ -56,17 +67,26 @@ class AIEngine:
         # =========================
         # CLIENTS
         # =========================
-        self.deepseek_client = self._safe_create(lambda: OpenAI(
-            api_key=self.deepseek_api_key,
-            base_url="https://api.deepseek.com"
-        ))
+        self.groq_client = self._safe_create(
+            "Groq",
+            lambda: Groq(api_key=self.groq_api_key)
+        )
 
-        self.groq_client = self._safe_create(lambda: Groq(api_key=self.groq_api_key))
+        self.deepseek_client = self._safe_create(
+            "DeepSeek",
+            lambda: OpenAI(
+                api_key=self.deepseek_api_key,
+                base_url="https://api.deepseek.com"
+            )
+        )
 
-        self.openrouter_client = self._safe_create(lambda: OpenAI(
-            api_key=self.openrouter_api_key,
-            base_url="https://openrouter.ai/api/v1"
-        ))
+        self.openrouter_client = self._safe_create(
+            "OpenRouter",
+            lambda: OpenAI(
+                api_key=self.openrouter_api_key,
+                base_url="https://openrouter.ai/api/v1"
+            )
+        )
 
         # =========================
         # STATE
@@ -78,56 +98,52 @@ class AIEngine:
         self.lock = threading.RLock()
 
     # ==================================================
-    # SAFE CREATOR
+    # SAFE CLIENT CREATE
     # ==================================================
-    def _safe_create(self, fn: Callable):
+    def _safe_create(self, name: str, fn: Callable):
         try:
-            return fn()
-        except:
+            client = fn()
+            print(f"✅ {name} client ready")
+            return client
+        except Exception as e:
+            print(f"❌ {name} init failed:", e)
             return None
 
     # ==================================================
-    # MAIN RESPONSE
+    # MAIN
     # ==================================================
     def generate_response(self, user_input: str, session_id: str = "default") -> str:
 
-        if not user_input or not user_input.strip():
+        if not user_input.strip():
             return "⚠️ Empty input."
-
-        user_input = user_input.strip()
 
         decision = self.detect_intent(user_input)
 
-        # ACTION MODE
+        # 🔥 ACTION MODE
         if decision.get("intent") != "chat":
             reply = self._handle_action(decision)
             self._save_chat(session_id, user_input, reply)
             return reply
 
-        # CHAT MODE
-        context = self._safe_context(session_id)
-        memory = self._safe_memory()
-
-        prompt = self._build_prompt(user_input, context, memory)
-
+        # 🔥 CHAT MODE
+        prompt = self._build_prompt(user_input, session_id)
         reply = self._run_pipeline(prompt)
 
         self._save_chat(session_id, user_input, reply)
-
         return reply
 
     # ==================================================
-    # PROMPT BUILDER
+    # PROMPT
     # ==================================================
-    def _build_prompt(self, user_input: str, context: str, memory: str) -> str:
+    def _build_prompt(self, user_input: str, session_id: str) -> str:
 
-        context = context[-1000:] if context else ""
-        memory = memory[:400] if memory else ""
+        context = self._safe_context(session_id)[-800:]
+        memory = self._safe_memory()
 
         try:
             return self.prompt_engine.build_chat_prompt(
                 user_input=user_input,
-                context=f"{context}\n{memory}".strip()
+                context=f"{context}\n{memory}"
             )
         except:
             return user_input
@@ -142,7 +158,7 @@ class AIEngine:
             return {"intent": "chat"}
 
     # ==================================================
-    # ACTION HANDLER (SAFE)
+    # ACTION
     # ==================================================
     def _handle_action(self, decision: Dict[str, Any]) -> str:
 
@@ -151,13 +167,10 @@ class AIEngine:
 
         try:
             if intent == "open_app":
-
                 if "chrome" in target:
                     webbrowser.open("https://google.com")
-
                 elif "youtube" in target:
                     webbrowser.open("https://youtube.com")
-
                 elif "code" in target:
                     subprocess.Popen(["code"], shell=True)
 
@@ -167,16 +180,13 @@ class AIEngine:
                 webbrowser.open(f"https://www.google.com/search?q={target}")
                 return f"🔎 Searching {target}"
 
-            elif intent == "system_action":
-                return "⚙️ Restricted system command."
-
         except Exception as e:
             return f"❌ Action error: {str(e)}"
 
         return "⚡ Done."
 
     # ==================================================
-    # AI PIPELINE (SMART ROUTING)
+    # 🔥 AI PIPELINE (FIXED)
     # ==================================================
     def _run_pipeline(self, prompt: str) -> str:
 
@@ -187,13 +197,15 @@ class AIEngine:
         ]
 
         for name, fn in providers:
+            print(f"🚀 Trying {name}...")
 
             result = self._safe_call(name, fn, prompt)
 
             if result:
+                print(f"✅ {name} SUCCESS")
                 return result
 
-        return "আমি এখন offline mode এ আছি 🚀"
+        return f"😅 All providers failed → {self.last_error}"
 
     def _safe_call(self, name: str, fn: Callable, prompt: str) -> Optional[str]:
 
@@ -216,13 +228,14 @@ class AIEngine:
             with self.lock:
                 self.last_error = f"{name}: {str(e)}"
 
+            print(f"❌ {name} ERROR:", e)
+
         return None
 
     # ==================================================
     # PROVIDERS
     # ==================================================
     def _groq_call(self, prompt: str) -> Optional[str]:
-
         if not self.groq_client:
             return None
 
@@ -230,33 +243,31 @@ class AIEngine:
             model=self.groq_model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.6,
-            max_tokens=220
+            max_tokens=300
         )
 
         return res.choices[0].message.content
 
     def _deepseek_call(self, prompt: str) -> Optional[str]:
-
         if not self.deepseek_client:
             return None
 
         res = self.deepseek_client.chat.completions.create(
             model=self.deepseek_model,
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=220
+            max_tokens=300
         )
 
         return res.choices[0].message.content
 
     def _openrouter_call(self, prompt: str) -> Optional[str]:
-
         if not self.openrouter_client:
             return None
 
         res = self.openrouter_client.chat.completions.create(
             model=self.openrouter_model,
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=200
+            max_tokens=300
         )
 
         return res.choices[0].message.content
